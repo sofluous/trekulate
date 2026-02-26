@@ -365,6 +365,7 @@ function populateOutlineSegmentSelect() {
     sel.appendChild(opt);
     sel.disabled = true;
     if (ui.centerOutlineSegment) ui.centerOutlineSegment.disabled = true;
+    syncActionAvailability();
     return;
   }
   state.outlineSegmentsMeta.forEach((meta, idx) => {
@@ -377,6 +378,7 @@ function populateOutlineSegmentSelect() {
   sel.value = String(state.selectedOutlineSegmentIndex);
   sel.disabled = false;
   if (ui.centerOutlineSegment) ui.centerOutlineSegment.disabled = false;
+  syncActionAvailability();
 }
 
 function centerOnSelectedOutlineSegment() {
@@ -489,6 +491,31 @@ function setButtonBusy(btn, busy, busyText = 'Working...') {
     btn.disabled = false;
     if (btn.dataset.idleLabel) btn.textContent = btn.dataset.idleLabel;
   }
+  syncActionAvailability();
+}
+
+function syncActionAvailability() {
+  const hasInput = !!ui.pinData?.value.trim();
+  const hasPins = state.pins.length > 0;
+  const hasPath = state.path.length > 1;
+  const hasOutline = state.countryOutline.some(isValidGeoPoint);
+  const hasOutlineRaw = state.countryOutlineRaw.some(isValidGeoPoint);
+  const hasRouteOrMap = hasPath || hasOutline || hasOutlineRaw;
+  const hasCountryName = !!ui.countryName?.value.trim();
+  const hasOutlineSegments = state.outlineSegmentsMeta.length > 0;
+  const hasTopo = !!state.topography.loaded;
+  const hasBoundsSource = hasPins || hasPath || hasOutline;
+
+  if (ui.parsePreview) ui.parsePreview.disabled = !hasInput;
+  if (ui.loadPins) ui.loadPins.disabled = !hasInput;
+  if (ui.clearInput) ui.clearInput.disabled = !hasInput;
+  if (ui.sampleRoute && !ui.sampleRoute.classList.contains('is-busy')) ui.sampleRoute.disabled = state.pins.length < 2;
+  if (ui.clearRoute) ui.clearRoute.disabled = !hasRouteOrMap;
+  if (ui.loadCountry && !ui.loadCountry.classList.contains('is-busy')) ui.loadCountry.disabled = !hasCountryName;
+  if (ui.outlineSegmentSelect) ui.outlineSegmentSelect.disabled = !hasOutlineSegments;
+  if (ui.centerOutlineSegment) ui.centerOutlineSegment.disabled = !hasOutlineSegments;
+  if (ui.fitGeoWindow) ui.fitGeoWindow.disabled = !hasBoundsSource;
+  if (ui.clearTopography && !ui.clearTopography.classList.contains('is-busy')) ui.clearTopography.disabled = !hasTopo;
 }
 
 function setLayerToggleButton(btn, isOn) {
@@ -1703,6 +1730,7 @@ function clearTopography() {
   updateRawView();
   requestRender();
   setTopoStatus('Topography cleared.');
+  syncActionAvailability();
 }
 
 function drawTopographyContours(targetCtx, cam) {
@@ -2085,6 +2113,7 @@ function refreshPinList() {
     const row = document.createElement('tr');
     row.innerHTML = '<td class="pin-empty" colspan="4">No pins loaded.</td>';
     ui.pinTableBody.appendChild(row);
+    syncActionAvailability();
     return;
   }
 
@@ -2117,6 +2146,7 @@ function refreshPinList() {
     ui.pinTableBody.appendChild(row);
   }
   syncMetadataEditor();
+  syncActionAvailability();
 }
 
 function getSelectedPin() {
@@ -2140,6 +2170,7 @@ function syncMetadataEditor() {
   ui.cancelPinMeta.disabled = true;
   ui.deletePin.disabled = false;
   refreshPinListHighlight();
+  syncActionAvailability();
   requestRender();
 }
 
@@ -2279,6 +2310,7 @@ async function loadPinsFromUI(options = {}) {
     const failHint = failed.length ? ` First issue: ${failed[0].reason}` : '';
     setStatus(`No valid pin rows found.${failHint}`);
     if (!silent) toast('No valid pins parsed', 'err');
+    syncActionAvailability();
     return;
   }
 
@@ -2302,6 +2334,7 @@ async function loadPinsFromUI(options = {}) {
   } else {
     setStatus(`Added ${added.length} pin(s).`);
   }
+  syncActionAvailability();
   requestRender();
 }
 
@@ -2696,6 +2729,7 @@ function nudgeGeoWindow(dLat, dLng) {
 }
 
 ui.loadPins.addEventListener('click', loadPinsFromUI);
+ui.pinData?.addEventListener('input', syncActionAvailability);
 ui.parsePreview.addEventListener('click', () => {
   const lines = ui.pinData.value
     .split('\n')
@@ -2733,6 +2767,7 @@ ui.clearRoute.addEventListener('click', () => {
   updateBounds();
   rebuildTimelineAnchors();
   updateRawView();
+  syncActionAvailability();
   requestRender();
 });
 
@@ -2764,6 +2799,7 @@ ui.loadCountry.addEventListener('click', () => {
   const name = ui.countryName.value.trim();
   if (name) fetchCountryOutline(name);
 });
+ui.countryName?.addEventListener('input', syncActionAvailability);
 ui.outlineMainlandOnly?.addEventListener('change', () => {
   state.outlineFilterMode = ui.outlineMainlandOnly.value || 'all';
   applyCountryOutlineFilter();
@@ -3025,6 +3061,7 @@ if (ui.outlineMainlandOnly) ui.outlineMainlandOnly.value = state.outlineFilterMo
 syncLayerToggleButtons();
 populateOutlineSegmentSelect();
 setTopoStatus('Topography idle.');
+syncActionAvailability();
 updateDebugView();
 resize();
 requestRender();
