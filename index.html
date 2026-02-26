@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TREKULATE v0.1 - Holographic Journey</title>
+  <title>TREKULATE v0.9 - Journey mapping</title>
   <link rel="stylesheet" href="./theme.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <style>
@@ -178,8 +178,6 @@
       min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
-      scrollbar-width: thin;
-      scrollbar-color: color-mix(in oklab, var(--ds-accent) 45%, transparent) transparent;
     }
 
     .tabs-divider {
@@ -266,29 +264,8 @@
       gap: 6px;
     }
 
-    .panel-help {
-      min-height: 22px;
-      width: 22px;
-      padding: 0;
-      margin: 0;
-      font-size: 0;
-    }
-
-    .panel-help i {
-      font-size: 13px;
-      color: var(--ds-text-muted);
-    }
-
-    .group-toggle {
-      min-height: 22px;
-      width: 22px;
-      padding: 0;
-      margin: 0;
-      font-size: 0;
-    }
-
+    .panel-help i,
     .group-toggle i {
-      font-size: 13px;
       color: var(--ds-text-muted);
     }
 
@@ -417,55 +394,6 @@
       color: var(--ds-text-muted);
       text-transform: none;
       letter-spacing: 0;
-    }
-
-    .controls::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-
-    .controls::-webkit-scrollbar-thumb {
-      border-radius: 10px;
-      background: color-mix(in oklab, var(--ds-accent) 55%, var(--ds-bg-raised));
-      border: 2px solid transparent;
-      background-clip: content-box;
-    }
-
-    .controls::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .pin-list::-webkit-scrollbar,
-    .controls textarea::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-
-    .pin-list::-webkit-scrollbar-thumb,
-    .controls textarea::-webkit-scrollbar-thumb {
-      border-radius: 10px;
-      background: color-mix(in oklab, var(--ds-accent) 55%, var(--ds-bg-raised));
-      border: 2px solid transparent;
-      background-clip: content-box;
-    }
-
-    .pin-list::-webkit-scrollbar-track,
-    .controls textarea::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .tabs::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    .tabs::-webkit-scrollbar-thumb {
-      border-radius: 8px;
-      background: color-mix(in oklab, var(--ds-accent) 45%, transparent);
-    }
-
-    .tabs::-webkit-scrollbar-track {
-      background: transparent;
     }
 
     .timeline-bar {
@@ -686,8 +614,6 @@
       height: 100%;
       min-height: 0;
       resize: none;
-      scrollbar-width: thin;
-      scrollbar-color: color-mix(in oklab, var(--ds-accent) 55%, var(--ds-bg-raised)) transparent;
     }
 
     .render-stack {
@@ -797,8 +723,6 @@
       padding: 0;
       border-top: var(--ds-border-w) var(--ds-border-style) color-mix(in oklab, var(--line) 78%, transparent);
       border-bottom: var(--ds-border-w) var(--ds-border-style) color-mix(in oklab, var(--line) 78%, transparent);
-      scrollbar-width: thin;
-      scrollbar-color: color-mix(in oklab, var(--ds-accent) 55%, var(--ds-bg-raised)) transparent;
     }
 
     .pin-table {
@@ -979,12 +903,6 @@
       margin-top: 4px;
     }
 
-    .panel-status {
-      font-size: 11px;
-      color: var(--ds-text-muted);
-      min-height: 16px;
-    }
-
     #pinSource {
       font-size: 11px;
       color: var(--ds-text-muted);
@@ -1032,11 +950,13 @@
       flex: 1;
     }
 
-    .timeline-bar .ds-btn {
-      min-height: 30px;
-      padding: 0;
-      margin: 0;
-      font-size: 0;
+    .timeline-tools .route-btn {
+      min-width: 72px;
+      justify-content: center;
+    }
+
+    .timeline-tools .route-btn i {
+      font-size: 14px;
     }
 
     dialog.ds-modal {
@@ -1099,7 +1019,7 @@
         <span class="subtle">v0.8 wireframe</span>
       </header>
       <div class="panel-body">
-      <div class="tabs">
+      <div class="tabs ds-scroll">
         <button class="ds-btn tab-btn is-active" id="tabMapping" data-tab="mapping" aria-selected="true" title="Pins"><i class="iconoir-map-pin" aria-hidden="true"></i></button>
         <button class="ds-btn tab-btn" id="tabData" data-tab="data" aria-selected="false" title="Data and Import"><i class="iconoir-map" aria-hidden="true"></i></button>
         <div class="tabs-divider" aria-hidden="true"></div>
@@ -1112,12 +1032,12 @@
         <div class="tabs-divider" aria-hidden="true"></div>
         <button class="ds-btn tab-btn" id="tabSettings" data-tab="settings" aria-selected="false" title="Settings"><i class="iconoir-settings" aria-hidden="true"></i></button>
       </div>
-      <div class="controls">
+      <div class="controls ds-scroll">
         <section class="control-tab" id="panelMapping" data-tab-panel="mapping">
           <div class="group">
             <div class="group-head">
               <h3>Add Pins</h3>
-              <button class="ds-btn panel-help" type="button" data-help="Paste CSV rows or Google Maps links, then use Add Pins. Successful rows are removed from the input." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm panel-help" type="button" data-help="Paste CSV rows or Google Maps links, then use Add Pins. Successful rows are removed from the input." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
             <textarea id="pinData" class="ds-textarea" placeholder="Paste rows as: lat,lng,label,timestamp,note&#10;or paste Google Maps share links (one per line)">37.7749,-122.4194,San Francisco
 34.0522,-118.2437,Los Angeles
@@ -1129,14 +1049,14 @@
               <button class="ds-btn" id="parsePreview">Preview</button>
               <button class="ds-btn ds-btn-primary" id="loadPins">Add Pins</button>
             </div>
-            <div id="pinParseStatus" class="panel-status mapping-status-row">Ready.</div>
+            <div id="pinParseStatus" class="panel-status ds-status mapping-status-row">Ready.</div>
           </div>
           <div class="group pins-meta-group">
             <div class="group-head">
               <h3>Pins + Metadata</h3>
-              <button class="ds-btn panel-help" type="button" data-help="Select a pin from the list to edit metadata. Save activates only after changes." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm panel-help" type="button" data-help="Select a pin from the list to edit metadata. Save activates only after changes." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
-            <div id="pinList" class="pin-list">
+            <div id="pinList" class="pin-list ds-scroll">
               <table class="pin-table" aria-label="Journey pins">
                 <thead>
                   <tr>
@@ -1167,7 +1087,7 @@
           <div class="group">
             <div class="group-head">
               <h3>Rendering Controls</h3>
-              <button class="ds-btn panel-help" type="button" data-help="Layer order: Pins, Path, Outline, Lat/Lng Grid, Topography, Sea Level. Use color + width + opacity controls for each layer." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm panel-help" type="button" data-help="Layer order: Pins, Path, Outline, Lat/Lng Grid, Topography, Sea Level. Use color + width + opacity controls for each layer." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
             <div class="render-stack">
               <section class="render-group">
@@ -1343,7 +1263,7 @@
           <div class="group">
             <div class="group-head">
               <h3>Camera Controls</h3>
-              <button class="ds-btn panel-help" type="button" data-help="Left drag to orbit. Shift+left drag or middle drag to track. Wheel to dolly. Preset gizmo buttons match direction." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm panel-help" type="button" data-help="Left drag to orbit. Shift+left drag or middle drag to track. Wheel to dolly. Preset gizmo buttons match direction." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
             <div class="camera-stack">
               <div class="camera-row">
@@ -1427,7 +1347,7 @@
           <div class="group">
             <div class="group-head">
               <h3>Map Settings + Open Data</h3>
-              <button class="ds-btn panel-help" type="button" data-help="Load country outlines from open map sources. Re-run Route after pin changes." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm panel-help" type="button" data-help="Load country outlines from open map sources. Re-run Route after pin changes." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
             <div class="data-stack">
               <div class="data-row">
@@ -1490,12 +1410,12 @@
               <button class="ds-btn" id="geoNudgeS" title="Move south">S</button>
               <button class="ds-btn ds-btn-primary" id="fitGeoWindow" title="Fit window to loaded map">Fit Window</button>
             </div>
-            <div id="mapSettingsHint" class="panel-status"></div>
+            <div id="mapSettingsHint" class="panel-status ds-status"></div>
           </div>
           <div class="group">
             <div class="group-head">
               <h3>Topography Import</h3>
-              <button class="ds-btn panel-help" type="button" data-help="MVP: loads elevation samples from OpenTopoData and renders contour wireframe. Use country outline first for best bounds." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm panel-help" type="button" data-help="MVP: loads elevation samples from OpenTopoData and renders contour wireframe. Use country outline first for best bounds." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
             <div class="data-stack">
               <div class="data-row">
@@ -1521,7 +1441,7 @@
               <button class="ds-btn ds-btn-danger" id="clearTopography">Clear Topography</button>
               <button class="ds-btn ds-btn-primary" id="loadTopography">Load Topography</button>
             </div>
-            <div id="topoStatus" class="panel-status">Topography idle.</div>
+            <div id="topoStatus" class="panel-status ds-status">Topography idle.</div>
           </div>
         </section>
 
@@ -1531,7 +1451,7 @@
             <div class="btn-row">
               <button class="ds-btn ds-btn-primary" id="exportPng">PNG</button>
             </div>
-            <div id="exportStatus" class="panel-status">Ready.</div>
+            <div id="exportStatus" class="panel-status ds-status">Ready.</div>
           </div>
         </section>
 
@@ -1539,9 +1459,9 @@
           <div class="group raw-json-group">
             <div class="group-head">
               <h3>Raw JSON</h3>
-              <button class="ds-btn" id="refreshRaw" type="button" title="Refresh raw JSON preview"><i class="iconoir-refresh-double" aria-hidden="true"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm" id="refreshRaw" type="button" title="Refresh raw JSON preview"><i class="iconoir-refresh-double" aria-hidden="true"></i></button>
             </div>
-            <textarea id="rawJsonView" class="ds-textarea" readonly></textarea>
+            <textarea id="rawJsonView" class="ds-textarea ds-scroll" readonly></textarea>
           </div>
         </section>
 
@@ -1549,9 +1469,9 @@
           <div class="group raw-json-group">
             <div class="group-head">
               <h3>Debug State</h3>
-              <button class="ds-btn" id="refreshDebug" type="button" title="Refresh debug state"><i class="iconoir-refresh-double" aria-hidden="true"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm" id="refreshDebug" type="button" title="Refresh debug state"><i class="iconoir-refresh-double" aria-hidden="true"></i></button>
             </div>
-            <textarea id="debugView" class="ds-textarea" readonly></textarea>
+            <textarea id="debugView" class="ds-textarea ds-scroll" readonly></textarea>
           </div>
         </section>
 
@@ -1588,15 +1508,15 @@
 
     <section class="timeline-bar">
       <div class="timeline-tools">
-        <button class="ds-btn ds-btn-primary" id="playPause" title="Play/Pause"><i class="iconoir-play-solid" aria-hidden="true"></i></button>
-        <button class="ds-btn" id="reset" title="Reset timeline"><i class="iconoir-restart" aria-hidden="true"></i></button>
-        <button class="ds-btn" id="timelineModeBtn" title="Timeline mode"><i class="iconoir-clock-rotate-right" aria-hidden="true"></i></button>
+        <button class="ds-btn ds-btn-primary ds-btn-icon ds-btn-sm" id="playPause" title="Play/Pause"><i class="iconoir-play-solid" aria-hidden="true"></i></button>
+        <button class="ds-btn ds-btn-icon ds-btn-sm" id="reset" title="Reset timeline"><i class="iconoir-restart" aria-hidden="true"></i></button>
+        <button class="ds-btn ds-btn-icon ds-btn-sm" id="timelineModeBtn" title="Timeline mode"><i class="iconoir-clock-rotate-right" aria-hidden="true"></i></button>
         <label class="subtle speed-wrap" for="speed" title="Playback speed">
           <input id="speed" type="range" min="0.1" max="4" value="1" step="0.1">
         </label>
         <div class="spacer"></div>
-        <button class="ds-btn ds-btn-danger" id="clearRoute" title="Clear route and outline"><i class="iconoir-trash" aria-hidden="true"></i></button>
-        <button class="ds-btn ds-btn-primary" id="sampleRoute" title="Build route from pins"><i class="iconoir-route" aria-hidden="true"></i></button>
+        <button class="ds-btn ds-btn-danger ds-btn-icon ds-btn-sm" id="clearRoute" title="Clear route and outline"><i class="iconoir-trash" aria-hidden="true"></i></button>
+        <button class="ds-btn ds-btn-primary route-btn" id="sampleRoute" title="Build route from pins"><i class="iconoir-route" aria-hidden="true"></i><span>Route</span></button>
       </div>
       <div class="timeline-slider-wrap">
         <div class="timeline-track-wrap">

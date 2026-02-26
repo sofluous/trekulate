@@ -41,6 +41,7 @@
 
   --ds-control-h: 38px;
   --ds-control-h-sm: 32px;
+  --ds-control-hit-min: 32px;
   --ds-layout-gap: var(--ds-space-4);
   --ds-card-pad: var(--ds-space-4);
   --ds-label-transform: uppercase;
@@ -72,6 +73,14 @@
 
   --ds-btn-radius: var(--ds-radius-2);
   --ds-btn-h: var(--ds-control-h);
+  --ds-btn-h-sm: var(--ds-control-h-sm);
+  --ds-btn-icon-size: var(--ds-control-hit-min);
+  --ds-btn-icon-size-sm: var(--ds-control-h-sm);
+  --ds-btn-icon-font-size: 16px;
+  --ds-scrollbar-size: 10px;
+  --ds-scrollbar-thumb: color-mix(in oklab, var(--ds-accent) 55%, var(--ds-bg-raised));
+  --ds-scrollbar-track: transparent;
+  --ds-scrollbar-radius: 10px;
   --ds-btn-pad-x: var(--ds-space-3);
   --ds-btn-bg: var(--ds-bg-raised);
   --ds-btn-border: var(--ds-border);

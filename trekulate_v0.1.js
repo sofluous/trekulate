@@ -565,7 +565,7 @@ function setupCollapsibleGroups() {
     if (head.querySelector('.group-toggle')) continue;
     const toggle = document.createElement('button');
     toggle.type = 'button';
-    toggle.className = 'ds-btn group-toggle';
+    toggle.className = 'ds-btn ds-btn-icon ds-btn-sm group-toggle';
     toggle.title = 'Collapse/expand section';
     toggle.innerHTML = '<i class="iconoir-nav-arrow-down" aria-hidden="true"></i>';
     toggle.addEventListener('click', () => {

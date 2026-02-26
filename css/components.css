@@ -157,7 +157,32 @@ p {
 
 .ds-btn-sm {
   min-height: var(--ds-control-h-sm);
+  min-width: var(--ds-control-h-sm);
   font-size: var(--ds-fs-1);
+}
+
+.ds-btn-icon {
+  width: var(--ds-btn-icon-size);
+  min-width: var(--ds-btn-icon-size);
+  min-height: var(--ds-btn-icon-size);
+  padding: 0;
+  gap: 0;
+  font-size: 0;
+  line-height: 1;
+}
+
+.ds-btn-icon > i,
+.ds-btn-icon > svg {
+  font-size: var(--ds-btn-icon-font-size);
+  width: var(--ds-btn-icon-font-size);
+  height: var(--ds-btn-icon-font-size);
+  line-height: 1;
+}
+
+.ds-btn-icon.ds-btn-sm {
+  width: var(--ds-btn-icon-size-sm);
+  min-width: var(--ds-btn-icon-size-sm);
+  min-height: var(--ds-btn-icon-size-sm);
 }
 
 .ds-field {
@@ -460,6 +485,7 @@ p {
   width: min(520px, calc(100vw - 32px));
   margin: 10vh auto;
   background: var(--ds-bg-elevated);
+  color: var(--ds-text);
   border: var(--ds-border-w) var(--ds-border-style) var(--ds-border);
   border-radius: var(--ds-radius-3);
   padding: var(--ds-space-4);
@@ -476,9 +502,19 @@ p {
   height: 100vh;
   width: min(360px, 100vw);
   background: var(--ds-bg-elevated);
+  color: var(--ds-text);
   border-left: var(--ds-border-w) var(--ds-border-style) var(--ds-border);
   padding: var(--ds-space-4);
   box-shadow: var(--ds-shadow-md);
+}
+
+.ds-modal-panel h1,
+.ds-modal-panel h2,
+.ds-modal-panel h3,
+.ds-drawer-panel h1,
+.ds-drawer-panel h2,
+.ds-drawer-panel h3 {
+  color: var(--ds-text);
 }
 
 .ds-popover-wrap {
@@ -499,6 +535,12 @@ p {
   color: var(--ds-text-muted);
   display: none;
   z-index: var(--ds-z-dropdown);
+}
+
+.ds-popover h1,
+.ds-popover h2,
+.ds-popover h3 {
+  color: var(--ds-text);
 }
 
 .ds-popover-wrap.is-open .ds-popover {
@@ -537,6 +579,33 @@ p {
 
 .ds-muted {
   color: var(--ds-text-muted);
+}
+
+.ds-status {
+  font-size: var(--ds-fs-1);
+  color: var(--ds-text-muted);
+  min-height: 16px;
+}
+
+.ds-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ds-scrollbar-thumb) var(--ds-scrollbar-track);
+}
+
+.ds-scroll::-webkit-scrollbar {
+  width: var(--ds-scrollbar-size);
+  height: var(--ds-scrollbar-size);
+}
+
+.ds-scroll::-webkit-scrollbar-thumb {
+  border-radius: var(--ds-scrollbar-radius);
+  background: var(--ds-scrollbar-thumb);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.ds-scroll::-webkit-scrollbar-track {
+  background: var(--ds-scrollbar-track);
 }
 
 .ds-guide-grid {
