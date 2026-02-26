@@ -176,6 +176,13 @@
       background: color-mix(in oklab, var(--panel) 86%, transparent);
     }
 
+    .tabs-divider {
+      width: 24px;
+      height: 1px;
+      margin: 2px 0;
+      background: color-mix(in oklab, var(--line) 80%, transparent);
+    }
+
     .tab-btn {
       width: 32px;
       min-height: 32px;
@@ -248,7 +255,7 @@
 
     .group-head {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr auto auto;
       align-items: center;
       gap: 6px;
     }
@@ -264,6 +271,27 @@
     .panel-help i {
       font-size: 13px;
       color: var(--ds-text-muted);
+    }
+
+    .group-toggle {
+      min-height: 22px;
+      width: 22px;
+      padding: 0;
+      margin: 0;
+      font-size: 0;
+    }
+
+    .group-toggle i {
+      font-size: 13px;
+      color: var(--ds-text-muted);
+    }
+
+    .group.is-collapsed > :not(.group-head) {
+      display: none;
+    }
+
+    .group.is-collapsed {
+      gap: 0;
     }
 
     label {
@@ -330,6 +358,11 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .ds-btn.is-busy {
+      opacity: 0.8;
+      pointer-events: none;
     }
 
     .theme-switch {
@@ -418,9 +451,9 @@
     .timeline-bar {
       grid-column: 2;
       grid-row: 2;
-      display: grid;
-      grid-template-columns: 34px 34px 34px 140px 1fr;
-      align-items: center;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
       gap: 6px;
       padding: 8px;
       border: var(--ds-border-w) var(--ds-border-style) var(--line);
@@ -431,32 +464,101 @@
       min-width: 0;
     }
 
+    .timeline-tools {
+      display: grid;
+      grid-template-columns: 34px 34px 34px 140px;
+      align-items: center;
+      gap: 6px;
+    }
+
     .timeline-slider-wrap {
       display: grid;
       gap: 4px;
       min-width: 0;
+      width: 100%;
     }
 
     .timeline-track-wrap {
       position: relative;
-      min-height: 16px;
+      min-height: 42px;
       display: flex;
       align-items: center;
+      width: 100%;
+      border: var(--ds-border-w) var(--ds-border-style) color-mix(in oklab, var(--line) 75%, transparent);
+      border-radius: 4px;
+      background:
+        linear-gradient(180deg, color-mix(in oklab, var(--panel) 90%, black 10%), color-mix(in oklab, var(--panel) 80%, black 20%));
+      padding: 0 6px;
+      overflow: hidden;
+    }
+
+    #timeline {
+      width: 100%;
+      min-width: 0;
+      display: block;
+      z-index: 2;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      height: 16px;
+      margin: 0;
+    }
+
+    #timeline:focus {
+      outline: none;
+    }
+
+    #timeline::-webkit-slider-runnable-track {
+      height: 4px;
+      background: color-mix(in oklab, var(--line) 42%, transparent);
+      border-radius: 2px;
+      border: 0;
+    }
+
+    #timeline::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 1px;
+      height: 14px;
+      margin-top: -5px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    #timeline::-moz-range-track {
+      height: 4px;
+      background: color-mix(in oklab, var(--line) 42%, transparent);
+      border-radius: 2px;
+      border: 0;
+    }
+
+    #timeline::-moz-range-thumb {
+      width: 1px;
+      height: 14px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
     }
 
     .timeline-markers {
       position: absolute;
-      inset: 0;
+      inset: 12px 6px 12px 6px;
       pointer-events: none;
+      z-index: 3;
     }
 
     .timeline-marker {
       position: absolute;
-      top: 3px;
-      width: 8px;
+      top: 1px;
+      width: 10px;
       height: 8px;
-      border-radius: 50%;
-      border: 1px solid color-mix(in oklab, var(--ds-accent) 78%, white 10%);
+      min-width: 10px;
+      min-height: 8px;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      border: 0;
       background: color-mix(in oklab, var(--ds-accent) 54%, transparent);
       box-shadow: 0 0 4px color-mix(in oklab, var(--ds-accent) 62%, transparent);
       transform: translateX(-50%);
@@ -469,7 +571,73 @@
       box-shadow: 0 0 7px color-mix(in oklab, var(--ds-accent) 82%, transparent);
     }
 
+    .timeline-ruler {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      top: 18px;
+      height: 12px;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          to right,
+          color-mix(in oklab, var(--line) 86%, transparent) 0 1px,
+          transparent 1px calc(5% - 1px),
+          color-mix(in oklab, var(--line) 48%, transparent) calc(5% - 1px) 5%
+        );
+      z-index: 1;
+    }
+
+    .timeline-ruler-labels {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      top: 2px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--ds-text-muted);
+      letter-spacing: 0.03em;
+      line-height: 1;
+      padding: 0;
+      user-select: none;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .timeline-playhead {
+      position: absolute;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: color-mix(in oklab, var(--ds-accent) 92%, white 8%);
+      box-shadow: 0 0 6px color-mix(in oklab, var(--ds-accent) 72%, transparent);
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .timeline-playhead::before {
+      content: "";
+      position: absolute;
+      top: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 12px;
+      height: 8px;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      background: color-mix(in oklab, var(--ds-accent) 88%, white 12%);
+      box-shadow: 0 0 6px color-mix(in oklab, var(--ds-accent) 66%, transparent);
+    }
+
     #panelRaw {
+      height: 100%;
+      min-height: 0;
+      align-content: stretch;
+      align-items: stretch;
+    }
+
+    #panelDebug {
       height: 100%;
       min-height: 0;
       align-content: stretch;
@@ -484,7 +652,8 @@
       grid-template-rows: auto minmax(0, 1fr);
     }
 
-    #rawJsonView {
+    #rawJsonView,
+    #debugView {
       height: 100%;
       min-height: 0;
       resize: none;
@@ -494,14 +663,14 @@
 
     .render-stack {
       display: grid;
-      gap: 6px;
+      gap: 10px;
       align-content: start;
     }
 
     .render-group {
       display: grid;
-      gap: 4px;
-      padding-top: 4px;
+      gap: 6px;
+      padding-top: 8px;
       border-top: var(--ds-border-w) var(--ds-border-style) color-mix(in oklab, var(--line) 70%, transparent);
     }
 
@@ -519,16 +688,64 @@
       text-transform: uppercase;
     }
 
+    .layer-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .layer-vis {
+      width: 22px;
+      min-height: 22px;
+      padding: 0;
+      font-size: 0;
+    }
+
+    .layer-vis i {
+      font-size: 13px;
+      color: var(--ds-text-muted);
+    }
+
+    .layer-vis.is-on i {
+      color: var(--ds-accent);
+    }
+
     .render-row {
       display: grid;
-      grid-template-columns: 24px 1fr;
+      grid-template-columns: 18px 1fr 168px;
       gap: 6px;
       align-items: center;
       min-height: 0;
     }
 
-    .render-row.color-only {
-      grid-template-columns: 1fr;
+    .render-label {
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ds-text-muted);
+      white-space: nowrap;
+    }
+
+    .render-row.color-row input[type="color"] {
+      width: 34px;
+      min-height: 18px;
+      height: 18px;
+      padding: 1px;
+    }
+
+    .render-row input[type="range"],
+    .render-row select,
+    .render-row input[type="color"],
+    .render-row .ds-btn {
+      width: 100%;
+      min-width: 0;
+      justify-self: stretch;
+    }
+
+    .render-row input[type="range"] {
+      min-width: 0;
+      max-width: none;
     }
 
     .mini-key {
@@ -607,9 +824,33 @@
 
     .camera-row {
       display: grid;
-      grid-template-columns: 24px 1fr;
+      grid-template-columns: 18px 1fr 168px;
       gap: 6px;
       align-items: center;
+    }
+
+    .camera-row input[type="range"] {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .data-stack {
+      display: grid;
+      gap: 6px;
+    }
+
+    .data-row {
+      display: grid;
+      grid-template-columns: 18px 1fr 168px;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .data-row input[type="range"],
+    .data-row select,
+    .data-row .ds-input {
+      width: 100%;
+      min-width: 0;
     }
 
     .camera-actions {
@@ -618,15 +859,46 @@
       gap: 4px;
     }
 
-    .camera-presets {
+    .camera-gizmo-wrap {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 4px;
+      justify-items: center;
+      align-content: start;
     }
 
-    .camera-presets .ds-btn {
-      min-width: 0;
-      padding: 0 6px;
+    .camera-gizmo {
+      display: grid;
+      grid-template-columns: repeat(3, 30px);
+      grid-template-rows: repeat(4, 28px);
+      gap: 4px;
+      align-items: center;
+      justify-items: center;
+    }
+
+    .camera-gizmo .ds-btn {
+      width: 30px;
+      min-height: 28px;
+      padding: 0;
+    }
+
+    .g-top { grid-column: 2; grid-row: 1; }
+    .g-left { grid-column: 1; grid-row: 2; }
+    .g-front { grid-column: 2; grid-row: 2; }
+    .g-right { grid-column: 3; grid-row: 2; }
+    .g-back { grid-column: 2; grid-row: 3; }
+    .g-bottom { grid-column: 2; grid-row: 4; }
+
+    .camera-presets-row {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .camera-presets-row .ds-btn {
+      min-width: 30px;
+      min-height: 28px;
+      padding: 0 8px;
     }
 
     .meta-actions {
@@ -646,6 +918,14 @@
       align-self: stretch;
       display: grid;
       grid-template-rows: auto minmax(0, 1fr) auto auto;
+    }
+
+    .group.is-collapsed.raw-json-group,
+    .group.is-collapsed.pins-meta-group {
+      height: auto;
+      min-height: 0;
+      align-self: start;
+      grid-template-rows: auto;
     }
 
     .metadata-block {
@@ -767,7 +1047,9 @@
       .timeline-bar {
         grid-column: 1;
         grid-row: 3;
-        grid-template-columns: 34px 34px 34px 120px 1fr;
+      }
+      .timeline-tools {
+        grid-template-columns: 34px 34px 34px 120px;
       }
     }
   </style>
@@ -781,12 +1063,15 @@
       </header>
       <div class="panel-body">
       <div class="tabs">
-        <button class="ds-btn tab-btn is-active" id="tabMapping" data-tab="mapping" aria-selected="true" title="Mapping"><i class="iconoir-map" aria-hidden="true"></i></button>
-        <button class="ds-btn tab-btn" id="tabRaw" data-tab="raw" aria-selected="false" title="Raw JSON"><i class="iconoir-code" aria-hidden="true"></i></button>
-        <button class="ds-btn tab-btn" id="tabData" data-tab="data" aria-selected="false" title="Data and Import"><i class="iconoir-database" aria-hidden="true"></i></button>
-        <button class="ds-btn tab-btn" id="tabRendering" data-tab="rendering" aria-selected="false" title="Rendering"><i class="iconoir-view-grid" aria-hidden="true"></i></button>
+        <button class="ds-btn tab-btn is-active" id="tabMapping" data-tab="mapping" aria-selected="true" title="Pins"><i class="iconoir-map-pin" aria-hidden="true"></i></button>
+        <button class="ds-btn tab-btn" id="tabData" data-tab="data" aria-selected="false" title="Data and Import"><i class="iconoir-map" aria-hidden="true"></i></button>
+        <div class="tabs-divider" aria-hidden="true"></div>
+        <button class="ds-btn tab-btn" id="tabRendering" data-tab="rendering" aria-selected="false" title="Rendering"><i class="iconoir-cube-bandage" aria-hidden="true"></i></button>
+        <button class="ds-btn tab-btn" id="tabCamera" data-tab="camera" aria-selected="false" title="Camera"><i class="iconoir-camera" aria-hidden="true"></i></button>
         <button class="ds-btn tab-btn" id="tabExport" data-tab="export" aria-selected="false" title="Export"><i class="iconoir-upload-data-window" aria-hidden="true"></i></button>
         <div class="rail-spacer"></div>
+        <button class="ds-btn tab-btn" id="tabRaw" data-tab="raw" aria-selected="false" title="Raw JSON"><i class="iconoir-code" aria-hidden="true"></i></button>
+        <button class="ds-btn tab-btn" id="tabDebug" data-tab="debug" aria-selected="false" title="Debug"><i class="iconoir-terminal-tag" aria-hidden="true"></i></button>
         <button class="ds-btn tab-btn" id="tabSettings" data-tab="settings" aria-selected="false" title="Settings"><i class="iconoir-settings" aria-hidden="true"></i></button>
       </div>
       <div class="controls">
@@ -851,95 +1136,257 @@
           <div class="group">
             <div class="group-head">
               <h3>Rendering Controls</h3>
-              <button class="ds-btn panel-help" type="button" data-help="Colors are direct pickers. Symbol sliders control glow, height, opacity, width, and size." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn panel-help" type="button" data-help="Layer order: Pins, Path, Outline, Lat/Lng Grid, Topography, Sea Level. Use color + width + opacity controls for each layer." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
             <div class="render-stack">
               <section class="render-group">
-                <h4>Terrain</h4>
-                <div class="render-row color-only">
-                  <input id="terrainColor" type="color" value="#3cd7ff" title="Terrain color">
+                <div class="layer-head">
+                  <h4>Pins</h4>
+                  <button class="ds-btn layer-vis is-on" id="visPins" type="button" title="Show/hide Pins"><i class="iconoir-eye" aria-hidden="true"></i></button>
+                </div>
+                <div class="render-row color-row">
+                  <span class="mini-key" title="Color"><i class="iconoir-color-picker" aria-hidden="true"></i></span>
+                  <span class="render-label">Color</span>
+                  <input id="pinColor" type="color" value="#f2fdff" title="Pin color">
                 </div>
                 <div class="render-row">
-                  <span class="mini-key" title="Glow"><i class="iconoir-half-moon" aria-hidden="true"></i></span>
-                  <input id="terrainGlow" type="range" min="0" max="2.5" value="1.1" step="0.1" title="Terrain glow">
-                </div>
-                <div class="render-row">
-                  <span class="mini-key" title="Height"><i class="iconoir-ruler-combine" aria-hidden="true"></i></span>
-                  <input id="terrainHeight" type="range" min="0.2" max="2.8" value="1.2" step="0.1" title="Terrain height">
-                </div>
-                <div class="render-row">
-                  <span class="mini-key" title="Wire opacity"><i class="iconoir-transparency-grid" aria-hidden="true"></i></span>
-                  <input id="wireOpacity" type="range" min="0.05" max="1" value="0.65" step="0.05" title="Wire opacity">
+                  <span class="mini-key" title="Size"><i class="iconoir-diameter" aria-hidden="true"></i></span>
+                  <span class="render-label">Size</span>
+                  <input id="pinSize" type="range" min="2" max="12" value="6" step="1" title="Pin size">
                 </div>
               </section>
 
               <section class="render-group">
-                <h4>Path</h4>
-                <div class="render-row color-only">
+                <div class="layer-head">
+                  <h4>Path</h4>
+                  <button class="ds-btn layer-vis is-on" id="visPath" type="button" title="Show/hide Path"><i class="iconoir-eye" aria-hidden="true"></i></button>
+                </div>
+                <div class="render-row color-row">
+                  <span class="mini-key" title="Color"><i class="iconoir-color-picker" aria-hidden="true"></i></span>
+                  <span class="render-label">Color</span>
                   <input id="pathColor" type="color" value="#8dffcf" title="Path color">
                 </div>
                 <div class="render-row">
                   <span class="mini-key" title="Width"><i class="iconoir-line-space" aria-hidden="true"></i></span>
+                  <span class="render-label">Width</span>
                   <input id="pathWidth" type="range" min="1" max="7" value="3" step="0.5" title="Path width">
                 </div>
               </section>
 
               <section class="render-group">
-                <h4>Pin</h4>
-                <div class="render-row color-only">
-                  <input id="pinColor" type="color" value="#f2fdff" title="Pin color">
+                <div class="layer-head">
+                  <h4>Outline</h4>
+                  <button class="ds-btn layer-vis is-on" id="visOutline" type="button" title="Show/hide Outline"><i class="iconoir-eye" aria-hidden="true"></i></button>
+                </div>
+                <div class="render-row color-row">
+                  <span class="mini-key" title="Color"><i class="iconoir-color-picker" aria-hidden="true"></i></span>
+                  <span class="render-label">Color</span>
+                  <input id="outlineColor" type="color" value="#8dffcf" title="Outline color">
                 </div>
                 <div class="render-row">
-                  <span class="mini-key" title="Size"><i class="iconoir-diameter" aria-hidden="true"></i></span>
-                  <input id="pinSize" type="range" min="2" max="12" value="6" step="1" title="Pin size">
+                  <span class="mini-key" title="Opacity"><i class="iconoir-transparency-grid" aria-hidden="true"></i></span>
+                  <span class="render-label">Opacity</span>
+                  <input id="outlineOpacity" type="range" min="0.05" max="1" value="0.32" step="0.01" title="Outline opacity">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Width"><i class="iconoir-line-space" aria-hidden="true"></i></span>
+                  <span class="render-label">Width</span>
+                  <input id="outlineWidth" type="range" min="0.6" max="3.2" value="1.2" step="0.1" title="Outline width">
+                </div>
+              </section>
+
+              <section class="render-group">
+                <div class="layer-head">
+                  <h4>Lat/Lng Grid</h4>
+                  <button class="ds-btn layer-vis is-on" id="visGeoGrid" type="button" title="Show/hide Lat/Lng Grid"><i class="iconoir-eye" aria-hidden="true"></i></button>
+                </div>
+                <div class="render-row color-row">
+                  <span class="mini-key" title="Color"><i class="iconoir-color-picker" aria-hidden="true"></i></span>
+                  <span class="render-label">Color</span>
+                  <input id="geoGridColor" type="color" value="#7dcbff" title="Grid color">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Opacity"><i class="iconoir-transparency-grid" aria-hidden="true"></i></span>
+                  <span class="render-label">Opacity</span>
+                  <input id="geoGridOpacity" type="range" min="0.05" max="1" value="0.22" step="0.01" title="Grid opacity">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Width"><i class="iconoir-line-space" aria-hidden="true"></i></span>
+                  <span class="render-label">Width</span>
+                  <input id="geoGridWidth" type="range" min="0.5" max="3" value="1" step="0.1" title="Grid width">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Latitude increment"><i class="iconoir-arrows-up-down" aria-hidden="true"></i></span>
+                  <span class="render-label">Lat Increment</span>
+                  <input id="geoLatStep" type="range" min="0.1" max="30" value="2" step="0.1" title="Latitude increment">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Longitude increment"><i class="iconoir-arrows-left-right" aria-hidden="true"></i></span>
+                  <span class="render-label">Lng Increment</span>
+                  <input id="geoLngStep" type="range" min="0.1" max="30" value="2" step="0.1" title="Longitude increment">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Label opacity"><i class="iconoir-text-box" aria-hidden="true"></i></span>
+                  <span class="render-label">Label Opacity</span>
+                  <input id="geoLabelOpacity" type="range" min="0" max="1" value="0.68" step="0.01" title="Label opacity">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Link increments"><i class="iconoir-link" aria-hidden="true"></i></span>
+                  <span class="render-label">Link Increments</span>
+                  <button class="ds-btn layer-vis is-on" id="geoStepLink" type="button" title="Link lat/lng increments"><i class="iconoir-link" aria-hidden="true"></i></button>
+                </div>
+              </section>
+
+              <section class="render-group">
+                <div class="layer-head">
+                  <h4>Topography</h4>
+                  <button class="ds-btn layer-vis is-on" id="visTopography" type="button" title="Show/hide Topography"><i class="iconoir-eye" aria-hidden="true"></i></button>
+                </div>
+                <div class="render-row color-row">
+                  <span class="mini-key" title="Color"><i class="iconoir-color-picker" aria-hidden="true"></i></span>
+                  <span class="render-label">Color</span>
+                  <input id="topoColor" type="color" value="#8dffcf" title="Topography color">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Opacity"><i class="iconoir-transparency-grid" aria-hidden="true"></i></span>
+                  <span class="render-label">Opacity</span>
+                  <input id="topoOpacity" type="range" min="0.1" max="1" value="0.68" step="0.01" title="Topography opacity">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Width"><i class="iconoir-line-space" aria-hidden="true"></i></span>
+                  <span class="render-label">Width</span>
+                  <input id="topoLineWidth" type="range" min="0.5" max="2.6" value="1.1" step="0.1" title="Topography line width">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="3D Height"><i class="iconoir-ruler-combine" aria-hidden="true"></i></span>
+                  <span class="render-label">3D Height</span>
+                  <input id="topoHeightScale" type="range" min="0" max="0.75" value="0.26" step="0.01" title="Topography 3D height">
+                </div>
+              </section>
+
+              <section class="render-group">
+                <div class="layer-head">
+                  <h4>Sea Level</h4>
+                  <button class="ds-btn layer-vis is-on" id="visSeaLevel" type="button" title="Show/hide Sea Level"><i class="iconoir-eye" aria-hidden="true"></i></button>
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Pattern"><i class="iconoir-grid-minus" aria-hidden="true"></i></span>
+                  <span class="render-label">Pattern</span>
+                  <select id="terrainPattern" class="ds-select" title="Sea level pattern">
+                    <option value="grid" selected>Grid</option>
+                    <option value="dots">Dots</option>
+                    <option value="hatch">Hatch</option>
+                  </select>
+                </div>
+                <div class="render-row color-row">
+                  <span class="mini-key" title="Color"><i class="iconoir-color-picker" aria-hidden="true"></i></span>
+                  <span class="render-label">Color</span>
+                  <input id="terrainColor" type="color" value="#3cd7ff" title="Sea level color">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Opacity"><i class="iconoir-transparency-grid" aria-hidden="true"></i></span>
+                  <span class="render-label">Opacity</span>
+                  <input id="wireOpacity" type="range" min="0.05" max="1" value="0.65" step="0.05" title="Sea level opacity">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Glow"><i class="iconoir-half-moon" aria-hidden="true"></i></span>
+                  <span class="render-label">Glow</span>
+                  <input id="terrainGlow" type="range" min="0" max="2.5" value="1.1" step="0.1" title="Sea level glow">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Density"><i class="iconoir-graph-up" aria-hidden="true"></i></span>
+                  <span class="render-label">Density</span>
+                  <input id="terrainDensity" type="range" min="0.5" max="20" value="6" step="0.5" title="Sea level density">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Elevation"><i class="iconoir-ruler-combine" aria-hidden="true"></i></span>
+                  <span class="render-label">Elevation</span>
+                  <input id="terrainHeight" type="range" min="-0.2" max="0.5" value="0" step="0.01" title="Sea level elevation">
                 </div>
               </section>
             </div>
           </div>
+        </section>
 
+        <section class="control-tab" id="panelCamera" data-tab-panel="camera" hidden>
           <div class="group">
             <div class="group-head">
               <h3>Camera Controls</h3>
-              <button class="ds-btn panel-help" type="button" data-help="Left drag to orbit, middle drag to track, wheel to zoom. Use presets for cardinal and isometric views." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn panel-help" type="button" data-help="Left drag to orbit. Shift+left drag or middle drag to track. Wheel to dolly. Preset gizmo buttons match direction." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
             <div class="camera-stack">
               <div class="camera-row">
                 <span class="mini-key" title="Yaw"><i class="iconoir-rotate-camera-right" aria-hidden="true"></i></span>
-                <input id="cameraYaw" type="range" min="-3.14" max="3.14" value="-0.76" step="0.01" title="Yaw">
+                <span class="render-label">Yaw</span>
+                <input id="cameraYaw" type="range" min="-31.4" max="31.4" value="-0.76" step="0.01" title="Yaw">
               </div>
               <div class="camera-row">
                 <span class="mini-key" title="Pitch"><i class="iconoir-view-360" aria-hidden="true"></i></span>
-                <input id="cameraPitch" type="range" min="0.30" max="1.45" value="0.93" step="0.01" title="Pitch">
+                <span class="render-label">Pitch</span>
+                <input id="cameraPitch" type="range" min="-1.55" max="1.55" value="0.93" step="0.01" title="Pitch">
               </div>
               <div class="camera-row">
                 <span class="mini-key" title="Zoom"><i class="iconoir-search" aria-hidden="true"></i></span>
-                <input id="cameraZoom" type="range" min="1.4" max="9.5" value="3.4" step="0.1" title="Zoom">
+                <span class="render-label">Zoom</span>
+                <input id="cameraZoom" type="range" min="0.35" max="16" value="3.4" step="0.05" title="Zoom">
               </div>
               <div class="camera-row">
-                <span class="mini-key" title="Pedestal"><i class="iconoir-align-bottom-box" aria-hidden="true"></i></span>
-                <input id="cameraPedestal" type="range" min="-1.2" max="1.2" value="0" step="0.02" title="Pedestal">
+                <span class="mini-key" title="Pan X"><i class="iconoir-arrows-left-right" aria-hidden="true"></i></span>
+                <span class="render-label">Focus X</span>
+                <input id="cameraPanX" type="range" min="-3.5" max="3.5" value="0" step="0.01" title="Pan X">
+              </div>
+              <div class="camera-row">
+                <span class="mini-key" title="Pan Z"><i class="iconoir-arrows-up-down" aria-hidden="true"></i></span>
+                <span class="render-label">Focus Z</span>
+                <input id="cameraPanZ" type="range" min="-3.5" max="3.5" value="0" step="0.01" title="Pan Z">
+              </div>
+              <div class="camera-row">
+                <span class="mini-key" title="Focus Y"><i class="iconoir-align-bottom-box" aria-hidden="true"></i></span>
+                <span class="render-label">Focus Y</span>
+                <input id="cameraPedestal" type="range" min="-1.2" max="1.2" value="0" step="0.02" title="Focus Y">
+              </div>
+              <div class="camera-row">
+                <span class="mini-key" title="Angle"><i class="iconoir-rotate-camera-left" aria-hidden="true"></i></span>
+                <span class="render-label">Roll</span>
+                <input id="cameraRoll" type="range" min="-3.14" max="3.14" value="0" step="0.01" title="Angle">
               </div>
               <div class="camera-row">
                 <span class="mini-key" title="Focal length"><i class="iconoir-camera" aria-hidden="true"></i></span>
+                <span class="render-label">Focal</span>
                 <input id="cameraFocal" type="range" min="18" max="120" value="50" step="1" title="Focal length">
               </div>
               <div class="camera-row">
                 <span class="mini-key" title="Lens angle"><i class="iconoir-diameter" aria-hidden="true"></i></span>
+                <span class="render-label">Lens</span>
                 <input id="cameraLens" type="range" min="22" max="95" value="58" step="1" title="Lens angle">
               </div>
-              <div class="camera-actions">
-                <button class="ds-btn" id="resetCamera" title="Reset camera"><i class="iconoir-undo" aria-hidden="true"></i></button>
+              <div class="camera-row">
+                <span class="mini-key" title="Focus depth"><i class="iconoir-focus" aria-hidden="true"></i></span>
+                <span class="render-label">Focus Depth</span>
+                <input id="cameraFocusDepth" type="range" min="0.35" max="18" value="3.6" step="0.05" title="Focus depth">
               </div>
-              <div class="camera-presets">
-                <button class="ds-btn" id="viewHome" title="Home view"><i class="iconoir-home" aria-hidden="true"></i></button>
-                <button class="ds-btn" id="viewFit" title="Fit map to frame"><i class="iconoir-frame-select" aria-hidden="true"></i></button>
-                <button class="ds-btn" id="viewIso" title="Isometric"><i class="iconoir-cube-bandage" aria-hidden="true"></i></button>
-                <button class="ds-btn" id="viewTop" title="Top"><i class="iconoir-nav-arrow-up" aria-hidden="true"></i></button>
-                <button class="ds-btn" id="viewBottom" title="Bottom"><i class="iconoir-nav-arrow-down" aria-hidden="true"></i></button>
-                <button class="ds-btn" id="viewLeft" title="Left"><i class="iconoir-nav-arrow-left" aria-hidden="true"></i></button>
-                <button class="ds-btn" id="viewRight" title="Right"><i class="iconoir-nav-arrow-right" aria-hidden="true"></i></button>
-                <button class="ds-btn" id="viewFront" title="Front"><i class="iconoir-view-grid" aria-hidden="true"></i></button>
-                <button class="ds-btn" id="viewBack" title="Back"><i class="iconoir-view-columns-3" aria-hidden="true"></i></button>
+              <div class="camera-row">
+                <span class="mini-key" title="Depth of field"><i class="iconoir-diameter" aria-hidden="true"></i></span>
+                <span class="render-label">DOF</span>
+                <input id="cameraDof" type="range" min="0" max="1.4" value="0" step="0.05" title="Depth of field">
+              </div>
+              <div class="camera-actions">
+                <button class="ds-btn" id="resetCamera" title="Reset camera"><i class="iconoir-restart" aria-hidden="true"></i></button>
+              </div>
+              <div class="camera-gizmo-wrap">
+                <div class="camera-gizmo">
+                  <button class="ds-btn g-top" id="viewTop" title="Top"><i class="iconoir-nav-arrow-up" aria-hidden="true"></i></button>
+                  <button class="ds-btn g-left" id="viewLeft" title="Left"><i class="iconoir-nav-arrow-left" aria-hidden="true"></i></button>
+                  <button class="ds-btn g-front" id="viewFront" title="Front"><i class="iconoir-view-grid" aria-hidden="true"></i></button>
+                  <button class="ds-btn g-right" id="viewRight" title="Right"><i class="iconoir-nav-arrow-right" aria-hidden="true"></i></button>
+                  <button class="ds-btn g-back" id="viewBack" title="Back"><i class="iconoir-view-columns-3" aria-hidden="true"></i></button>
+                  <button class="ds-btn g-bottom" id="viewBottom" title="Bottom"><i class="iconoir-nav-arrow-down" aria-hidden="true"></i></button>
+                </div>
+                <div class="camera-presets-row">
+                  <button class="ds-btn" id="viewIso" title="Isometric"><i class="iconoir-cube-bandage" aria-hidden="true"></i></button>
+                  <button class="ds-btn" id="viewFit" title="Fit map to frame"><i class="iconoir-frame-select" aria-hidden="true"></i></button>
+                  <button class="ds-btn" id="viewHome" title="Home view"><i class="iconoir-home" aria-hidden="true"></i></button>
+                </div>
               </div>
             </div>
           </div>
@@ -951,15 +1398,99 @@
               <h3>Map Settings + Open Data</h3>
               <button class="ds-btn panel-help" type="button" data-help="Load country outlines from open map sources. Re-run Route after pin changes." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
-            <label for="countryName">Country outline (Nominatim + Overpass)</label>
-            <div class="row">
-              <input id="countryName" class="ds-input" type="text" value="United States">
-              <button class="ds-btn" id="loadCountry">Outline</button>
+            <div class="data-stack">
+              <div class="data-row">
+                <span class="mini-key" title="Projection"><i class="iconoir-globe" aria-hidden="true"></i></span>
+                <span class="render-label">Projection</span>
+                <select id="mapProjection" class="ds-select">
+                  <option value="flat" selected>Flat map</option>
+                  <option value="globe">Spherical globe</option>
+                </select>
+              </div>
+              <div class="data-row">
+                <span class="mini-key" title="Country"><i class="iconoir-map" aria-hidden="true"></i></span>
+                <span class="render-label">Country</span>
+                <input id="countryName" class="ds-input" type="text" value="United States">
+              </div>
+              <div class="data-row">
+                <span class="mini-key" title="Outline filter"><i class="iconoir-filter" aria-hidden="true"></i></span>
+                <span class="render-label">Outline Filter</span>
+                <select id="outlineMainlandOnly" class="ds-select">
+                  <option value="all">All territories</option>
+                  <option value="mainland" selected>Mainland only (largest landmass)</option>
+                </select>
+              </div>
+              <div class="data-row">
+                <span class="mini-key" title="Landmass focus"><i class="iconoir-target" aria-hidden="true"></i></span>
+                <span class="render-label">Landmass Focus</span>
+                <select id="outlineSegmentSelect" class="ds-select"></select>
+              </div>
             </div>
+            <div class="btn-row">
+              <button class="ds-btn" id="loadCountry">Outline</button>
+              <button class="ds-btn" id="centerOutlineSegment">Center Landmass</button>
+            </div>
+            <div class="data-stack">
+              <div class="data-row">
+                <span class="mini-key" title="Center Lat"><i class="iconoir-arrows-up-down" aria-hidden="true"></i></span>
+                <span class="render-label">Center Lat</span>
+                <input id="geoCenterLat" type="range" min="-85" max="85" value="0" step="0.01" title="Latitude center">
+              </div>
+              <div class="data-row">
+                <span class="mini-key" title="Center Lng"><i class="iconoir-arrows-left-right" aria-hidden="true"></i></span>
+                <span class="render-label">Center Lng</span>
+                <input id="geoCenterLng" type="range" min="-180" max="180" value="0" step="0.01" title="Longitude center">
+              </div>
+              <div class="data-row">
+                <span class="mini-key" title="Window Span"><i class="iconoir-frame-select" aria-hidden="true"></i></span>
+                <span class="render-label">Window Span</span>
+                <input id="geoSpanDeg" type="range" min="0.5" max="360" value="60" step="0.1" title="Coordinate window span">
+              </div>
+              <div class="data-row">
+                <span class="mini-key" title="Fine Scale"><i class="iconoir-diameter" aria-hidden="true"></i></span>
+                <span class="render-label">Fine Scale</span>
+                <input id="geoFineScale" type="range" min="0.2" max="4" value="1" step="0.01" title="Fine scale">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="ds-btn" id="geoNudgeW" title="Move west">W</button>
+              <button class="ds-btn" id="geoNudgeE" title="Move east">E</button>
+              <button class="ds-btn" id="geoNudgeN" title="Move north">N</button>
+              <button class="ds-btn" id="geoNudgeS" title="Move south">S</button>
+              <button class="ds-btn ds-btn-primary" id="fitGeoWindow" title="Fit window to loaded map">Fit Window</button>
+            </div>
+            <div id="mapSettingsHint" class="panel-status"></div>
           </div>
           <div class="group">
-            <h3>Import Tools</h3>
-            <div class="footer">Phase 1 placeholder. Google Maps paste/import panel will be added in Phase 2.</div>
+            <div class="group-head">
+              <h3>Topography Import</h3>
+              <button class="ds-btn panel-help" type="button" data-help="MVP: loads elevation samples from OpenTopoData and renders contour wireframe. Use country outline first for best bounds." title="Help"><i class="iconoir-info-circle"></i></button>
+            </div>
+            <div class="data-stack">
+              <div class="data-row">
+                <span class="mini-key" title="Resolution"><i class="iconoir-ruler-combine" aria-hidden="true"></i></span>
+                <span class="render-label">Resolution</span>
+                <input id="topoResolution" type="range" min="12" max="42" value="24" step="2" title="Topography sample resolution">
+              </div>
+              <div class="data-row">
+                <span class="mini-key" title="Contours"><i class="iconoir-graph-up" aria-hidden="true"></i></span>
+                <span class="render-label">Contours</span>
+                <input id="topoContours" type="range" min="4" max="24" value="10" step="1" title="Contour levels">
+              </div>
+              <div class="data-row">
+                <span class="mini-key" title="Render mode"><i class="iconoir-view-grid" aria-hidden="true"></i></span>
+                <span class="render-label">Render Mode</span>
+                <select id="topoMode" class="ds-select">
+                  <option value="contour2d" selected>2D Contours</option>
+                  <option value="contour3d">3D Contours</option>
+                </select>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="ds-btn ds-btn-danger" id="clearTopography">Clear Topography</button>
+              <button class="ds-btn ds-btn-primary" id="loadTopography">Load Topography</button>
+            </div>
+            <div id="topoStatus" class="panel-status">Topography idle.</div>
           </div>
         </section>
 
@@ -977,6 +1508,16 @@
           <div class="group raw-json-group">
             <h3>Raw JSON</h3>
             <textarea id="rawJsonView" class="ds-textarea" readonly></textarea>
+          </div>
+        </section>
+
+        <section class="control-tab" id="panelDebug" data-tab-panel="debug" hidden>
+          <div class="group raw-json-group">
+            <div class="group-head">
+              <h3>Debug State</h3>
+              <button class="ds-btn" id="refreshDebug" type="button" title="Refresh debug state"><i class="iconoir-refresh-double" aria-hidden="true"></i></button>
+            </div>
+            <textarea id="debugView" class="ds-textarea" readonly></textarea>
           </div>
         </section>
 
@@ -1012,16 +1553,27 @@
     </section>
 
     <section class="timeline-bar">
-      <button class="ds-btn ds-btn-primary" id="playPause" title="Play/Pause"><i class="iconoir-play-solid" aria-hidden="true"></i></button>
-      <button class="ds-btn" id="reset" title="Reset timeline"><i class="iconoir-undo" aria-hidden="true"></i></button>
-      <button class="ds-btn" id="timelineModeBtn" title="Timeline mode"><i class="iconoir-clock-rotate-right" aria-hidden="true"></i></button>
-      <label class="subtle" for="speed" title="Playback speed">
-        <input id="speed" type="range" min="0.1" max="4" value="1" step="0.1">
-      </label>
+      <div class="timeline-tools">
+        <button class="ds-btn ds-btn-primary" id="playPause" title="Play/Pause"><i class="iconoir-play-solid" aria-hidden="true"></i></button>
+        <button class="ds-btn" id="reset" title="Reset timeline"><i class="iconoir-restart" aria-hidden="true"></i></button>
+        <button class="ds-btn" id="timelineModeBtn" title="Timeline mode"><i class="iconoir-clock-rotate-right" aria-hidden="true"></i></button>
+        <label class="subtle" for="speed" title="Playback speed">
+          <input id="speed" type="range" min="0.1" max="4" value="1" step="0.1">
+        </label>
+      </div>
       <div class="timeline-slider-wrap">
         <div class="timeline-track-wrap">
+          <div class="timeline-ruler-labels" aria-hidden="true">
+            <span>0%</span>
+            <span>25%</span>
+            <span>50%</span>
+            <span>75%</span>
+            <span>100%</span>
+          </div>
           <div id="timelineMarkers" class="timeline-markers" aria-hidden="false"></div>
+          <div id="timelinePlayhead" class="timeline-playhead" aria-hidden="true"></div>
           <input id="timeline" type="range" min="0" max="1000" value="0">
+          <div class="timeline-ruler" aria-hidden="true"></div>
         </div>
       </div>
     </section>
