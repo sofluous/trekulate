@@ -1067,7 +1067,7 @@ function updateBounds(options = {}) {
   const all = [...state.pins, ...state.path, ...state.countryOutline];
   if (!all.length) {
     state.bounds = { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1 };
-    if (!state.geoWindow.manual && !preserveGeoWindow) fitGeoWindowToBounds();
+    if (!state.geoWindow.manual && !preserveGeoWindow && getMapProjectionMode() !== 'globe') fitGeoWindowToBounds();
     return;
   }
   let minLat = Infinity;
@@ -1083,7 +1083,7 @@ function updateBounds(options = {}) {
   }
   if (!Number.isFinite(minLat) || !Number.isFinite(maxLat) || !Number.isFinite(minLng) || !Number.isFinite(maxLng)) {
     state.bounds = { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1 };
-    if (!state.geoWindow.manual && !preserveGeoWindow) fitGeoWindowToBounds();
+    if (!state.geoWindow.manual && !preserveGeoWindow && getMapProjectionMode() !== 'globe') fitGeoWindowToBounds();
     return;
   }
   const padLat = Math.max((maxLat - minLat) * 0.16, 0.01);
@@ -1094,7 +1094,7 @@ function updateBounds(options = {}) {
     minLng: minLng - padLng,
     maxLng: maxLng + padLng
   };
-  if (!state.geoWindow.manual && !preserveGeoWindow) fitGeoWindowToBounds();
+  if (!state.geoWindow.manual && !preserveGeoWindow && getMapProjectionMode() !== 'globe') fitGeoWindowToBounds();
   markStaticDirty();
   refreshDebugIfVisible();
 }
@@ -1644,16 +1644,38 @@ function makeGridAxis(min, max, count, descending = false) {
   return out;
 }
 
-async function fetchElevationBatch(locations) {
+async function fetchWithTimeout(url, options = {}, timeoutMs = 18000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: ctrl.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchElevationBatch(locations, dataset = 'aster30m', retries = 2) {
   const encoded = encodeURIComponent(locations.join('|'));
-  const url = `https://api.opentopodata.org/v1/aster30m?locations=${encoded}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  if (!Array.isArray(data?.results)) throw new Error('Invalid elevation response.');
-  return data.results.map(r => {
-    const v = Number(r.elevation);
-    return Number.isFinite(v) ? v : 0;
-  });
+  const url = `https://api.opentopodata.org/v1/${dataset}?locations=${encoded}`;
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, {}, 18000);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data?.results)) throw new Error('Invalid elevation response.');
+      return data.results.map(r => {
+        const v = Number(r.elevation);
+        return Number.isFinite(v) ? v : 0;
+      });
+    } catch (err) {
+      lastErr = err;
+      // Short backoff between retries for transient API/network failures.
+      if (attempt < retries) await new Promise(r => setTimeout(r, 350 * (attempt + 1)));
+    }
+  }
+  throw lastErr || new Error('Elevation batch failed.');
 }
 
 async function loadTopographyFromOpenData() {
@@ -1669,8 +1691,16 @@ async function loadTopographyFromOpenData() {
   const res = Number(ui.topoResolution?.value || 24);
   const contourCount = Number(ui.topoContours?.value || 10);
   const mode = ui.topoMode?.value || 'contour2d';
-  const rows = Math.max(8, res);
-  const cols = Math.max(8, res);
+  // Keep import responsive and avoid browser/network overload.
+  const maxPoints = 1400;
+  const targetRes = clamp(Number.isFinite(res) ? res : 24, 8, 56);
+  let rows = Math.max(8, Math.round(targetRes));
+  let cols = Math.max(8, Math.round(targetRes));
+  if (rows * cols > maxPoints) {
+    const scale = Math.sqrt(maxPoints / (rows * cols));
+    rows = Math.max(8, Math.floor(rows * scale));
+    cols = Math.max(8, Math.floor(cols * scale));
+  }
   const latList = makeGridAxis(bbox.minLat, bbox.maxLat, rows, true);
   const lngList = makeGridAxis(bbox.minLng, bbox.maxLng, cols, false);
   const queries = [];
@@ -1681,14 +1711,33 @@ async function loadTopographyFromOpenData() {
   }
 
   try {
-    setTopoStatus(`Fetching topography ${rows}x${cols}...`);
-    const batchSize = 70;
-    const valuesFlat = [];
-    for (let i = 0; i < queries.length; i += batchSize) {
-      const batch = queries.slice(i, i + batchSize);
-      const vals = await fetchElevationBatch(batch);
-      valuesFlat.push(...vals);
-      setTopoStatus(`Topography download ${(Math.min(i + batchSize, queries.length) / queries.length * 100).toFixed(0)}%`);
+    const datasets = ['aster30m', 'srtm90m'];
+    const batchSize = 65;
+    let valuesFlat = null;
+    let sourceDataset = '';
+    let lastErr = null;
+
+    for (const dataset of datasets) {
+      try {
+        const out = [];
+        setTopoStatus(`Fetching topography ${rows}x${cols} (${dataset})...`);
+        for (let i = 0; i < queries.length; i += batchSize) {
+          const batch = queries.slice(i, i + batchSize);
+          const vals = await fetchElevationBatch(batch, dataset, 2);
+          out.push(...vals);
+          const pct = (Math.min(i + batchSize, queries.length) / queries.length) * 100;
+          setTopoStatus(`Topography ${dataset} ${pct.toFixed(0)}%`);
+        }
+        valuesFlat = out;
+        sourceDataset = dataset;
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+
+    if (!valuesFlat || valuesFlat.length < rows * cols) {
+      throw lastErr || new Error('Topography dataset fallback exhausted.');
     }
 
     const values = [];
@@ -1718,16 +1767,18 @@ async function loadTopographyFromOpenData() {
       min,
       max,
       mode,
-      contourCount
+      contourCount,
+      source: `opentopodata/${sourceDataset}`
     };
     markStaticDirty();
     updateRawView();
     requestRender();
-    setTopoStatus(`Topography loaded. Elevation ${min.toFixed(0)}m to ${max.toFixed(0)}m.`);
+    setTopoStatus(`Topography loaded (${sourceDataset}). ${rows}x${cols}, ${min.toFixed(0)}m to ${max.toFixed(0)}m.`);
     toast('Topography loaded', 'ok');
   } catch (err) {
     console.error(err);
-    setTopoStatus('Topography fetch failed.');
+    const msg = err?.message ? `Topography fetch failed: ${err.message}` : 'Topography fetch failed.';
+    setTopoStatus(msg);
     toast('Topography fetch failed', 'err');
   } finally {
     setButtonBusy(ui.loadTopography, false);
@@ -2861,11 +2912,22 @@ ui.mapProjection?.addEventListener('change', () => {
   state.mapProjection = next;
   state.geoCache.key = '';
   state.geoCache.map.clear();
-  if (next === 'globe' && !state.geoWindow.manual) {
+  if (next === 'globe') {
     state.geoWindow.centerLat = 0;
     state.geoWindow.centerLng = 0;
     state.geoWindow.spanDeg = 180;
     state.geoWindow.fineScale = clamp(state.geoWindow.fineScale, 0.85, 2.2);
+    state.geoWindow.manual = true;
+    // Neutral globe pose: front-facing, north-up/south-down.
+    setCameraState({
+      yaw: 0,
+      pitch: 0,
+      roll: 0,
+      zoom: 3.6,
+      focusX: 0,
+      focusZ: 0,
+      focusY: 0
+    }, { skipRender: true });
     syncGeoWindowToUI();
   }
   syncProjectionButtons();
@@ -3065,7 +3127,7 @@ window.addEventListener('mousemove', (e) => {
       focusZ: state.camera.focusZ - deltaZ
     }, { syncUI: false });
   } else {
-    setCamera(state.camera.yaw + dx * 0.006, state.camera.pitch + dy * 0.005, state.camera.zoom, { syncUI: false });
+    setCamera(state.camera.yaw - dx * 0.006, state.camera.pitch + dy * 0.005, state.camera.zoom, { syncUI: false });
   }
 });
 window.addEventListener('mouseup', (e) => {
