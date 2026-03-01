@@ -27,8 +27,10 @@ const ui = {
   terrainPattern: document.getElementById('terrainPattern'),
   terrainDensity: document.getElementById('terrainDensity'),
   pathColor: document.getElementById('pathColor'),
+  pathOpacity: document.getElementById('pathOpacity'),
   pathWidth: document.getElementById('pathWidth'),
   pinColor: document.getElementById('pinColor'),
+  pinLabelColor: document.getElementById('pinLabelColor'),
   pinSize: document.getElementById('pinSize'),
   geoGridColor: document.getElementById('geoGridColor'),
   geoGridOpacity: document.getElementById('geoGridOpacity'),
@@ -108,6 +110,8 @@ const ui = {
   geoSpanDeg: document.getElementById('geoSpanDeg'),
   geoFineScale: document.getElementById('geoFineScale'),
   mapProjection: document.getElementById('mapProjection'),
+  mapProjectionFlat: document.getElementById('mapProjectionFlat'),
+  mapProjectionGlobe: document.getElementById('mapProjectionGlobe'),
   mapSettingsHint: document.getElementById('mapSettingsHint'),
   geoNudgeN: document.getElementById('geoNudgeN'),
   geoNudgeS: document.getElementById('geoNudgeS'),
@@ -235,6 +239,7 @@ function initRenderControlDefaultsFromTheme() {
   ui.terrainColor.value = cssColorToHex(cssVar('--accent', '#3cd7ff'), '#3cd7ff');
   ui.pathColor.value = cssColorToHex(cssVar('--accent-2', '#8dffcf'), '#8dffcf');
   ui.pinColor.value = cssColorToHex(cssVar('--text', '#f2fdff'), '#f2fdff');
+  if (ui.pinLabelColor) ui.pinLabelColor.value = cssColorToHex(cssVar('--text', '#f2fdff'), '#f2fdff');
 }
 
 function applyTheme(name) {
@@ -399,7 +404,7 @@ function applyCountryOutlineFilter() {
   if (!segments.length) {
     state.countryOutline = [];
     populateOutlineSegmentSelect();
-    updateBounds();
+    updateBounds({ preserveGeoWindow: true });
     updateRawView();
     updateDebugView();
     requestRender();
@@ -520,6 +525,11 @@ function syncActionAvailability() {
 
 function setLayerToggleButton(btn, isOn) {
   if (!btn) return;
+  if (btn === ui.geoStepLink && btn.type === 'checkbox') {
+    btn.checked = !!isOn;
+    btn.setAttribute('aria-checked', String(!!isOn));
+    return;
+  }
   btn.classList.toggle('is-on', !!isOn);
   if (btn === ui.geoStepLink) {
     btn.innerHTML = '<i class="iconoir-link" aria-hidden="true"></i>';
@@ -1053,11 +1063,12 @@ function parsePins(raw) {
   return { pins, errors, total: lines.length };
 }
 
-function updateBounds() {
+function updateBounds(options = {}) {
+  const { preserveGeoWindow = false } = options;
   const all = [...state.pins, ...state.path, ...state.countryOutline];
   if (!all.length) {
     state.bounds = { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1 };
-    if (!state.geoWindow.manual) fitGeoWindowToBounds();
+    if (!state.geoWindow.manual && !preserveGeoWindow) fitGeoWindowToBounds();
     return;
   }
   let minLat = Infinity;
@@ -1073,7 +1084,7 @@ function updateBounds() {
   }
   if (!Number.isFinite(minLat) || !Number.isFinite(maxLat) || !Number.isFinite(minLng) || !Number.isFinite(maxLng)) {
     state.bounds = { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1 };
-    if (!state.geoWindow.manual) fitGeoWindowToBounds();
+    if (!state.geoWindow.manual && !preserveGeoWindow) fitGeoWindowToBounds();
     return;
   }
   const padLat = Math.max((maxLat - minLat) * 0.16, 0.01);
@@ -1084,7 +1095,7 @@ function updateBounds() {
     minLng: minLng - padLng,
     maxLng: maxLng + padLng
   };
-  if (!state.geoWindow.manual) fitGeoWindowToBounds();
+  if (!state.geoWindow.manual && !preserveGeoWindow) fitGeoWindowToBounds();
   markStaticDirty();
   refreshDebugIfVisible();
 }
@@ -1163,6 +1174,14 @@ function updateMapSettingsHint() {
     `Projection: ${projection}. Center Lat/Lng sets focus point. Window Span controls visible degree range in flat mode. Fine Scale controls map size multiplier.`;
 }
 
+function syncProjectionButtons() {
+  if (!ui.mapProjectionFlat || !ui.mapProjectionGlobe) return;
+  const isGlobe = getMapProjectionMode() === 'globe';
+  ui.mapProjectionFlat.classList.toggle('is-active', !isGlobe);
+  ui.mapProjectionGlobe.classList.toggle('is-active', isGlobe);
+  ui.mapProjectionFlat.setAttribute('aria-pressed', String(!isGlobe));
+  ui.mapProjectionGlobe.setAttribute('aria-pressed', String(isGlobe));
+}
 function mapToWorld(lat, lng) {
   const centerLat = state.geoWindow.centerLat;
   const centerLng = state.geoWindow.centerLng;
@@ -1203,7 +1222,7 @@ function mapToScene(lat, lng, y = 0) {
     const sinLng = Math.sin(relLng);
     const cosLng = Math.cos(relLng);
 
-    const x0 = radius * cosLat * sinLng;
+    const x0 = -radius * cosLat * sinLng;
     // Positive latitude should appear as "up" in screen space for globe mode.
     const y0 = -radius * sinLat;
     const z0 = radius * cosLat * cosLng;
@@ -1870,6 +1889,7 @@ function drawPath(cam) {
 
   ctx.save();
   ctx.strokeStyle = c;
+  const pathOpacity = clamp(Number(ui.pathOpacity?.value || 0.82), 0.05, 1);
   ctx.lineWidth = Number(ui.pathWidth.value);
   ctx.shadowColor = c;
   for (let i = 0; i < projected.length - 1; i++) {
@@ -1877,7 +1897,7 @@ function drawPath(cam) {
     const b = projected[i + 1];
     const z = (a.z + b.z) * 0.5;
     const dof = getDepthOfFieldForZ(z);
-    ctx.globalAlpha = dof.alpha;
+    ctx.globalAlpha = dof.alpha * pathOpacity;
     ctx.shadowBlur = 8 + dof.blur;
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
@@ -1891,6 +1911,7 @@ function drawPins(cam) {
   if (!state.layerVisible.pins) return;
   if (!state.pins.length) return;
   const c = ui.pinColor.value;
+  const labelColor = ui.pinLabelColor?.value || c;
   const size = Number(ui.pinSize.value);
   const routeProgress = getRouteProgressFromTimeline();
   state.lastProjectedPins = [];
@@ -1934,7 +1955,9 @@ function drawPins(cam) {
       ctx.stroke();
     }
 
+    ctx.fillStyle = labelColor;
     ctx.fillText(pin.label, top.x + size + 5, top.y - 3);
+    ctx.fillStyle = c;
   });
   ctx.restore();
 }
@@ -2380,7 +2403,7 @@ async function fetchRouteFromOSRM() {
     state.routeDirty = false;
     state.progress = 0;
     ui.timeline.value = '0';
-    updateBounds();
+    updateBounds({ preserveGeoWindow: true });
     rebuildTimelineAnchors();
     setStatus(`Loaded route with ${state.path.length} path nodes.`);
     toast('Route updated', 'ok');
@@ -2391,6 +2414,7 @@ async function fetchRouteFromOSRM() {
     setStatus('Route lookup failed. Using direct pin path.');
     state.path = state.pins.map(p => ({ lat: p.lat, lng: p.lng, label: p.label }));
     state.routeDirty = true;
+    updateBounds({ preserveGeoWindow: true });
     rebuildTimelineAnchors();
     updateRawView();
     requestRender();
@@ -2636,7 +2660,8 @@ function setCameraState(patch = {}, options = {}) {
   const { skipRender = false, syncUI = true } = options;
   const yaw = patch.yaw ?? state.camera.yaw;
   state.camera.yaw = Number.isFinite(yaw) ? yaw : state.camera.yaw;
-  state.camera.pitch = clamp(patch.pitch ?? state.camera.pitch, -1.55, 1.55);
+  const pitch = patch.pitch ?? state.camera.pitch;
+  state.camera.pitch = Number.isFinite(pitch) ? pitch : state.camera.pitch;
   state.camera.zoom = clamp(patch.zoom ?? state.camera.zoom, 0.35, 16);
   state.camera.focusX = clamp(patch.focusX ?? patch.panX ?? state.camera.focusX, -8, 8);
   state.camera.focusZ = clamp(patch.focusZ ?? patch.panZ ?? state.camera.focusZ, -8, 8);
@@ -2829,12 +2854,24 @@ ui.mapProjection?.addEventListener('change', () => {
     state.geoWindow.fineScale = clamp(state.geoWindow.fineScale, 0.85, 2.2);
     syncGeoWindowToUI();
   }
+  syncProjectionButtons();
   updateMapSettingsHint();
   markStaticDirty();
   updateDebugView();
   requestRender();
   toast(`Projection: ${next === 'globe' ? 'Globe' : 'Flat map'}`, 'ok');
+});
+ui.mapProjectionFlat?.addEventListener('click', () => {
+  if (!ui.mapProjection) return;
+  ui.mapProjection.value = 'flat';
+  ui.mapProjection.dispatchEvent(new Event('change'));
 });
+ui.mapProjectionGlobe?.addEventListener('click', () => {
+  if (!ui.mapProjection) return;
+  ui.mapProjection.value = 'globe';
+  ui.mapProjection.dispatchEvent(new Event('change'));
+});
+
 ui.geoNudgeN?.addEventListener('click', () => nudgeGeoWindow(1, 0));
 ui.geoNudgeS?.addEventListener('click', () => nudgeGeoWindow(-1, 0));
 ui.geoNudgeE?.addEventListener('click', () => nudgeGeoWindow(0, 1));
@@ -2858,8 +2895,8 @@ ui.geoLngStep?.addEventListener('input', () => {
   updateDebugView();
   requestRender();
 });
-ui.geoStepLink?.addEventListener('click', () => {
-  state.geoStepLinked = !state.geoStepLinked;
+ui.geoStepLink?.addEventListener('input', () => {
+  state.geoStepLinked = ui.geoStepLink?.type === 'checkbox' ? !!ui.geoStepLink.checked : !state.geoStepLinked;
   if (state.geoStepLinked && ui.geoLatStep && ui.geoLngStep) ui.geoLngStep.value = ui.geoLatStep.value;
   syncLayerToggleButtons();
   markStaticDirty();
@@ -2949,7 +2986,7 @@ ui.viewBack?.addEventListener('click', () => setCameraPreset('back'));
     requestRender();
   });
 });
-[ui.pathColor, ui.pathWidth, ui.pinColor, ui.pinSize].forEach(el => el.addEventListener('input', requestRender));
+[ui.pathColor, ui.pathOpacity, ui.pathWidth, ui.pinColor, ui.pinLabelColor, ui.pinSize].filter(Boolean).forEach(el => el.addEventListener('input', requestRender));
 [ui.outlineColor, ui.outlineOpacity, ui.outlineWidth, ui.topoColor, ui.topoOpacity, ui.topoLineWidth, ui.topoHeightScale]
   .filter(Boolean)
   .forEach(el => el.addEventListener('input', () => {
@@ -3055,6 +3092,7 @@ loadPinsFromUI({ silent: true });
 syncCameraToUI();
 syncGeoWindowToUI();
 if (ui.mapProjection) ui.mapProjection.value = state.mapProjection;
+syncProjectionButtons();
 if (ui.topoContours) ui.topoContours.value = String(state.topography.contourCount);
 if (ui.topoMode) ui.topoMode.value = state.topography.mode;
 if (ui.outlineMainlandOnly) ui.outlineMainlandOnly.value = state.outlineFilterMode;

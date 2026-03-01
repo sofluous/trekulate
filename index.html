@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TREKULATE v0.9 - Journey mapping</title>
+  <meta name="app-version" content="0.10.0">
+  <title>TREKULATE - Journey mapping</title>
   <link rel="stylesheet" href="./theme.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <style>
@@ -386,6 +387,30 @@
       letter-spacing: var(--tk-letter-button);
     }
 
+    .hud-camera {
+      position: absolute;
+      left: var(--tk-hud-inset);
+      bottom: var(--tk-hud-inset);
+      border: var(--ds-border-w, 1px) var(--ds-border-style, solid) var(--line);
+      background: var(--fx-hud-bg);
+      border-radius: var(--ds-radius-2, 10px);
+      padding: 6px;
+      display: grid;
+      gap: 6px;
+      z-index: 2;
+      backdrop-filter: blur(4px);
+    }
+
+    .hud-camera .camera-gizmo {
+      grid-template-columns: repeat(3, 28px);
+      grid-template-rows: repeat(3, 28px);
+    }
+
+    .hud-camera .camera-gizmo .ds-btn {
+      width: 28px;
+      min-height: 28px;
+    }
+
     .footer {
       font-size: var(--ds-fs-1);
       opacity: 0.86;
@@ -703,6 +728,14 @@
       max-width: none;
     }
 
+    .render-row .geo-toggle {
+      width: 16px;
+      height: 16px;
+      justify-self: start;
+      accent-color: var(--ds-accent);
+      margin: 0;
+    }
+
     .mini-key {
       display: inline-flex;
       align-items: center;
@@ -806,6 +839,30 @@
       min-width: 0;
     }
 
+    .projection-switch {
+      display: inline-flex;
+      gap: 4px;
+      justify-self: start;
+    }
+
+    .projection-switch .ds-btn {
+      min-height: 26px;
+      padding: 0 10px;
+    }
+
+    .projection-switch .ds-btn.is-active {
+      border-color: var(--ds-accent);
+      color: var(--ds-accent);
+      background: color-mix(in oklab, var(--ds-accent) 14%, var(--ds-btn-bg));
+    }
+
+    .section-divider {
+      height: 1px;
+      margin: 4px 0;
+      border: 0;
+      background: color-mix(in oklab, var(--line) 72%, transparent);
+    }
+
     .camera-actions {
       display: grid;
       grid-template-columns: 1fr;
@@ -822,7 +879,7 @@
     .camera-gizmo {
       display: grid;
       grid-template-columns: repeat(3, 30px);
-      grid-template-rows: repeat(4, 28px);
+      grid-template-rows: repeat(3, 28px);
       gap: 4px;
       align-items: center;
       justify-items: center;
@@ -834,12 +891,14 @@
       padding: 0;
     }
 
+    .g-front { grid-column: 1; grid-row: 1; }
     .g-top { grid-column: 2; grid-row: 1; }
+    .g-back { grid-column: 3; grid-row: 1; }
     .g-left { grid-column: 1; grid-row: 2; }
-    .g-front { grid-column: 2; grid-row: 2; }
+    .g-home { grid-column: 2; grid-row: 2; }
     .g-right { grid-column: 3; grid-row: 2; }
-    .g-back { grid-column: 2; grid-row: 3; }
-    .g-bottom { grid-column: 2; grid-row: 4; }
+    .g-bottom { grid-column: 2; grid-row: 3; }
+    .g-fit { grid-column: 3; grid-row: 3; }
 
     .camera-presets-row {
       display: flex;
@@ -1097,8 +1156,13 @@
                 </div>
                 <div class="render-row color-row">
                   <span class="mini-key" title="Color"><i class="iconoir-color-picker" aria-hidden="true"></i></span>
-                  <span class="render-label">Color</span>
+                  <span class="render-label">Pin Color</span>
                   <input id="pinColor" type="color" value="#f2fdff" title="Pin color">
+                </div>
+                <div class="render-row color-row">
+                  <span class="mini-key" title="Label color"><i class="iconoir-text-box" aria-hidden="true"></i></span>
+                  <span class="render-label">Label Color</span>
+                  <input id="pinLabelColor" type="color" value="#f2fdff" title="Pin label color">
                 </div>
                 <div class="render-row">
                   <span class="mini-key" title="Size"><i class="iconoir-diameter" aria-hidden="true"></i></span>
@@ -1116,6 +1180,11 @@
                   <span class="mini-key" title="Color"><i class="iconoir-color-picker" aria-hidden="true"></i></span>
                   <span class="render-label">Color</span>
                   <input id="pathColor" type="color" value="#8dffcf" title="Path color">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Opacity"><i class="iconoir-transparency-grid" aria-hidden="true"></i></span>
+                  <span class="render-label">Opacity</span>
+                  <input id="pathOpacity" type="range" min="0.05" max="1" value="0.82" step="0.01" title="Path opacity">
                 </div>
                 <div class="render-row">
                   <span class="mini-key" title="Width"><i class="iconoir-line-space" aria-hidden="true"></i></span>
@@ -1137,7 +1206,7 @@
                 <div class="render-row">
                   <span class="mini-key" title="Opacity"><i class="iconoir-transparency-grid" aria-hidden="true"></i></span>
                   <span class="render-label">Opacity</span>
-                  <input id="outlineOpacity" type="range" min="0.05" max="1" value="0.32" step="0.01" title="Outline opacity">
+                  <input id="outlineOpacity" type="range" min="0.05" max="1" value="0.62" step="0.01" title="Outline opacity">
                 </div>
                 <div class="render-row">
                   <span class="mini-key" title="Width"><i class="iconoir-line-space" aria-hidden="true"></i></span>
@@ -1167,6 +1236,16 @@
                   <input id="geoGridWidth" type="range" min="0.5" max="3" value="1" step="0.1" title="Grid width">
                 </div>
                 <div class="render-row">
+                  <span class="mini-key" title="Label opacity"><i class="iconoir-text-box" aria-hidden="true"></i></span>
+                  <span class="render-label">Label Opacity</span>
+                  <input id="geoLabelOpacity" type="range" min="0" max="1" value="0.68" step="0.01" title="Label opacity">
+                </div>
+                <div class="render-row">
+                  <span class="mini-key" title="Link increments"><i class="iconoir-link" aria-hidden="true"></i></span>
+                  <span class="render-label">Link Increments</span>
+                  <input id="geoStepLink" class="geo-toggle" type="checkbox" checked title="Link lat/lng increments" aria-label="Link lat/lng increments">
+                </div>
+                <div class="render-row">
                   <span class="mini-key" title="Latitude increment"><i class="iconoir-arrows-up-down" aria-hidden="true"></i></span>
                   <span class="render-label">Lat Increment</span>
                   <input id="geoLatStep" type="range" min="0.1" max="30" value="2" step="0.1" title="Latitude increment">
@@ -1175,16 +1254,6 @@
                   <span class="mini-key" title="Longitude increment"><i class="iconoir-arrows-left-right" aria-hidden="true"></i></span>
                   <span class="render-label">Lng Increment</span>
                   <input id="geoLngStep" type="range" min="0.1" max="30" value="2" step="0.1" title="Longitude increment">
-                </div>
-                <div class="render-row">
-                  <span class="mini-key" title="Label opacity"><i class="iconoir-text-box" aria-hidden="true"></i></span>
-                  <span class="render-label">Label Opacity</span>
-                  <input id="geoLabelOpacity" type="range" min="0" max="1" value="0.68" step="0.01" title="Label opacity">
-                </div>
-                <div class="render-row">
-                  <span class="mini-key" title="Link increments"><i class="iconoir-link" aria-hidden="true"></i></span>
-                  <span class="render-label">Link Increments</span>
-                  <button class="ds-btn layer-vis is-on" id="geoStepLink" type="button" title="Link lat/lng increments"><i class="iconoir-link" aria-hidden="true"></i></button>
                 </div>
               </section>
 
@@ -1237,7 +1306,7 @@
                 <div class="render-row">
                   <span class="mini-key" title="Opacity"><i class="iconoir-transparency-grid" aria-hidden="true"></i></span>
                   <span class="render-label">Opacity</span>
-                  <input id="wireOpacity" type="range" min="0.05" max="1" value="0.65" step="0.05" title="Sea level opacity">
+                  <input id="wireOpacity" type="range" min="0.05" max="1" value="0.35" step="0.05" title="Sea level opacity">
                 </div>
                 <div class="render-row">
                   <span class="mini-key" title="Glow"><i class="iconoir-half-moon" aria-hidden="true"></i></span>
@@ -1274,7 +1343,7 @@
               <div class="camera-row">
                 <span class="mini-key" title="Pitch"><i class="iconoir-view-360" aria-hidden="true"></i></span>
                 <span class="render-label">Pitch</span>
-                <input id="cameraPitch" type="range" min="-1.55" max="1.55" value="0.93" step="0.01" title="Pitch">
+                <input id="cameraPitch" type="range" min="-6.28" max="6.28" value="0.93" step="0.01" title="Pitch">
               </div>
               <div class="camera-row">
                 <span class="mini-key" title="Zoom"><i class="iconoir-search" aria-hidden="true"></i></span>
@@ -1321,24 +1390,6 @@
                 <span class="render-label">DOF</span>
                 <input id="cameraDof" type="range" min="0" max="1.4" value="0" step="0.05" title="Depth of field">
               </div>
-              <div class="camera-actions">
-                <button class="ds-btn" id="resetCamera" title="Reset camera"><i class="iconoir-restart" aria-hidden="true"></i></button>
-              </div>
-              <div class="camera-gizmo-wrap">
-                <div class="camera-gizmo">
-                  <button class="ds-btn g-top" id="viewTop" title="Top"><i class="iconoir-nav-arrow-up" aria-hidden="true"></i></button>
-                  <button class="ds-btn g-left" id="viewLeft" title="Left"><i class="iconoir-nav-arrow-left" aria-hidden="true"></i></button>
-                  <button class="ds-btn g-front" id="viewFront" title="Front"><i class="iconoir-view-grid" aria-hidden="true"></i></button>
-                  <button class="ds-btn g-right" id="viewRight" title="Right"><i class="iconoir-nav-arrow-right" aria-hidden="true"></i></button>
-                  <button class="ds-btn g-back" id="viewBack" title="Back"><i class="iconoir-view-columns-3" aria-hidden="true"></i></button>
-                  <button class="ds-btn g-bottom" id="viewBottom" title="Bottom"><i class="iconoir-nav-arrow-down" aria-hidden="true"></i></button>
-                </div>
-                <div class="camera-presets-row">
-                  <button class="ds-btn" id="viewIso" title="Isometric"><i class="iconoir-cube-bandage" aria-hidden="true"></i></button>
-                  <button class="ds-btn" id="viewFit" title="Fit map to frame"><i class="iconoir-frame-select" aria-hidden="true"></i></button>
-                  <button class="ds-btn" id="viewHome" title="Home view"><i class="iconoir-home" aria-hidden="true"></i></button>
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -1347,22 +1398,32 @@
           <div class="group">
             <div class="group-head">
               <h3>Map Settings + Open Data</h3>
-              <button class="ds-btn ds-btn-icon ds-btn-sm panel-help" type="button" data-help="Load country outlines from open map sources. Re-run Route after pin changes." title="Help"><i class="iconoir-info-circle"></i></button>
+              <button class="ds-btn ds-btn-icon ds-btn-sm panel-help" type="button" data-help="Load country outlines from open map sources. Flat/Globe sets map projection mode. Center Lat/Lng repositions the focus window; Window Span controls the visible degree range in flat mode; Fine Scale adjusts map size. Re-run Route after pin changes." title="Help"><i class="iconoir-info-circle"></i></button>
             </div>
             <div class="data-stack">
               <div class="data-row">
                 <span class="mini-key" title="Projection"><i class="iconoir-globe" aria-hidden="true"></i></span>
                 <span class="render-label">Projection</span>
-                <select id="mapProjection" class="ds-select">
-                  <option value="flat" selected>Flat map</option>
-                  <option value="globe">Spherical globe</option>
-                </select>
+                <div class="projection-switch" role="group" aria-label="Map projection">
+                  <button class="ds-btn is-active" id="mapProjectionFlat" type="button" title="Use flat map projection">Flat</button>
+                  <button class="ds-btn" id="mapProjectionGlobe" type="button" title="Use spherical globe projection">Globe</button>
+                </div>
               </div>
+              <select id="mapProjection" class="ds-select" hidden aria-hidden="true" tabindex="-1">
+                <option value="flat" selected>Flat map</option>
+                <option value="globe">Spherical globe</option>
+              </select>
               <div class="data-row">
                 <span class="mini-key" title="Country"><i class="iconoir-map" aria-hidden="true"></i></span>
                 <span class="render-label">Country</span>
                 <input id="countryName" class="ds-input" type="text" value="United States">
               </div>
+            </div>
+            <div class="btn-row">
+              <button class="ds-btn ds-btn-primary" id="loadCountry">Outline</button>
+            </div>
+            <hr class="section-divider" aria-hidden="true">
+            <div class="data-stack">
               <div class="data-row">
                 <span class="mini-key" title="Outline filter"><i class="iconoir-filter" aria-hidden="true"></i></span>
                 <span class="render-label">Outline Filter</span>
@@ -1378,9 +1439,9 @@
               </div>
             </div>
             <div class="btn-row">
-              <button class="ds-btn" id="loadCountry">Outline</button>
               <button class="ds-btn" id="centerOutlineSegment">Center Landmass</button>
             </div>
+            <hr class="section-divider" aria-hidden="true">
             <div class="data-stack">
               <div class="data-row">
                 <span class="mini-key" title="Center Lat"><i class="iconoir-arrows-up-down" aria-hidden="true"></i></span>
@@ -1410,7 +1471,6 @@
               <button class="ds-btn" id="geoNudgeS" title="Move south">S</button>
               <button class="ds-btn ds-btn-primary" id="fitGeoWindow" title="Fit window to loaded map">Fit Window</button>
             </div>
-            <div id="mapSettingsHint" class="panel-status ds-status"></div>
           </div>
           <div class="group">
             <div class="group-head">
@@ -1488,6 +1548,10 @@
               <option value="tech-grid">Tech Grid</option>
               <option value="skeuo-panel">Skeuo Panel</option>
               <option value="industrial-terminal">Industrial Terminal</option>
+              <option value="velvet-touch">Velvet Touch</option>
+              <option value="eva-wireframe">Eva Wireframe</option>
+              <option value="eva-unit-01">Eva Unit-01</option>
+              <option value="saturn-alloy">Saturn Alloy</option>
             </select>
           </div>
         </section>
@@ -1497,6 +1561,20 @@
 
     <section class="viewer">
       <canvas id="view"></canvas>
+      <div class="hud-camera" aria-label="Camera view controls">
+        <div class="camera-gizmo">
+          <button class="ds-btn g-front" id="viewFront" title="Front"><i class="iconoir-view-grid" aria-hidden="true"></i></button>
+          <button class="ds-btn g-top" id="viewTop" title="Top"><i class="iconoir-nav-arrow-up" aria-hidden="true"></i></button>
+          <button class="ds-btn g-back" id="viewBack" title="Back"><i class="iconoir-view-columns-3" aria-hidden="true"></i></button>
+          <button class="ds-btn g-left" id="viewLeft" title="Left"><i class="iconoir-nav-arrow-left" aria-hidden="true"></i></button>
+          <button class="ds-btn g-home" id="viewHome" title="Home view"><i class="iconoir-home" aria-hidden="true"></i></button>
+          <button class="ds-btn g-right" id="viewRight" title="Right"><i class="iconoir-nav-arrow-right" aria-hidden="true"></i></button>
+          <button class="ds-btn g-bottom" id="viewBottom" title="Bottom"><i class="iconoir-nav-arrow-down" aria-hidden="true"></i></button>
+          <button class="ds-btn g-fit" id="viewFit" title="Fit map to frame"><i class="iconoir-frame-select" aria-hidden="true"></i></button>
+          <button class="ds-btn" id="viewIso" title="Isometric" hidden aria-hidden="true" tabindex="-1"><i class="iconoir-cube-bandage" aria-hidden="true"></i></button>
+          <button class="ds-btn" id="resetCamera" title="Reset camera" hidden aria-hidden="true" tabindex="-1"><i class="iconoir-restart" aria-hidden="true"></i></button>
+        </div>
+      </div>
       <div class="hud">
         <div id="hudPins">Pins: 0</div>
         <div id="hudPath">Path nodes: 0</div>
@@ -1563,6 +1641,8 @@
     </div>
   </dialog>
 
+  <div id="mapSettingsHint" class="panel-status ds-status" hidden aria-hidden="true"></div>
+  <input id="showGeoGrid" type="checkbox" checked hidden aria-hidden="true" tabindex="-1">
   <script src="./trekulate_v0.1.js"></script>
 </body>
 </html>
