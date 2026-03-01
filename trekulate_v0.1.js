@@ -42,12 +42,16 @@ const ui = {
   visPins: document.getElementById('visPins'),
   visPath: document.getElementById('visPath'),
   visOutline: document.getElementById('visOutline'),
+  visWorldContext: document.getElementById('visWorldContext'),
   visGeoGrid: document.getElementById('visGeoGrid'),
   visTopography: document.getElementById('visTopography'),
   visSeaLevel: document.getElementById('visSeaLevel'),
   outlineColor: document.getElementById('outlineColor'),
   outlineOpacity: document.getElementById('outlineOpacity'),
   outlineWidth: document.getElementById('outlineWidth'),
+  worldContextColor: document.getElementById('worldContextColor'),
+  worldContextOpacity: document.getElementById('worldContextOpacity'),
+  worldContextWidth: document.getElementById('worldContextWidth'),
   topoColor: document.getElementById('topoColor'),
   topoOpacity: document.getElementById('topoOpacity'),
   topoLineWidth: document.getElementById('topoLineWidth'),
@@ -118,6 +122,8 @@ const ui = {
   geoNudgeW: document.getElementById('geoNudgeW'),
   fitGeoWindow: document.getElementById('fitGeoWindow'),
   loadCountry: document.getElementById('loadCountry'),
+  refreshCountry: document.getElementById('refreshCountry'),
+  syncGlobalBaseline: document.getElementById('syncGlobalBaseline'),
   topoResolution: document.getElementById('topoResolution'),
   topoContours: document.getElementById('topoContours'),
   topoMode: document.getElementById('topoMode'),
@@ -136,6 +142,11 @@ ui.tabButtons = [ui.tabMapping, ui.tabRendering, ui.tabCamera, ui.tabData, ui.ta
 ui.tabPanels = Array.from(document.querySelectorAll('[data-tab-panel]'));
 
 const themeStorageKey = 'trekulate.theme';
+const outlineCacheStorageKey = 'trekulate.countryOutlineCache.v1';
+const outlineCacheLimit = 24;
+const globalBaselineDbName = 'trekulate.cache.db';
+const globalBaselineStore = 'kv';
+const globalBaselineKey = 'worldContextBaseline.v2';
 const CAMERA_DEFAULT = {
   yaw: -0.76,
   pitch: 0.93,
@@ -150,20 +161,72 @@ const CAMERA_DEFAULT = {
   dofStrength: 0
 };
 
+// Coarse global fallback context (used when cache does not yet have enough countries).
+const WORLD_CONTEXT_FALLBACK = [
+  [ // North America
+    { lat: 72, lng: -168 }, { lat: 70, lng: -140 }, { lat: 62, lng: -123 }, { lat: 53, lng: -110 },
+    { lat: 49, lng: -96 }, { lat: 44, lng: -84 }, { lat: 31, lng: -81 }, { lat: 23, lng: -97 },
+    { lat: 17, lng: -101 }, { lat: 14, lng: -88 }, { lat: 20, lng: -76 }, { lat: 31, lng: -64 },
+    { lat: 47, lng: -56 }, { lat: 58, lng: -67 }, { lat: 67, lng: -95 }, { lat: 72, lng: -130 },
+    { lat: 72, lng: -168 }
+  ],
+  [ // South America
+    { lat: 12, lng: -79 }, { lat: 6, lng: -74 }, { lat: 2, lng: -51 }, { lat: -8, lng: -36 },
+    { lat: -25, lng: -45 }, { lat: -39, lng: -57 }, { lat: -55, lng: -68 }, { lat: -49, lng: -74 },
+    { lat: -34, lng: -73 }, { lat: -11, lng: -78 }, { lat: 1, lng: -79 }, { lat: 12, lng: -79 }
+  ],
+  [ // Eurasia
+    { lat: 71, lng: -11 }, { lat: 70, lng: 26 }, { lat: 66, lng: 62 }, { lat: 62, lng: 95 },
+    { lat: 58, lng: 127 }, { lat: 51, lng: 141 }, { lat: 44, lng: 150 }, { lat: 37, lng: 142 },
+    { lat: 28, lng: 128 }, { lat: 20, lng: 120 }, { lat: 12, lng: 108 }, { lat: 7, lng: 98 },
+    { lat: 7, lng: 81 }, { lat: 15, lng: 71 }, { lat: 24, lng: 60 }, { lat: 31, lng: 44 },
+    { lat: 36, lng: 30 }, { lat: 44, lng: 15 }, { lat: 56, lng: 4 }, { lat: 62, lng: -5 },
+    { lat: 71, lng: -11 }
+  ],
+  [ // Africa
+    { lat: 37, lng: -17 }, { lat: 33, lng: 10 }, { lat: 31, lng: 35 }, { lat: 22, lng: 43 },
+    { lat: 12, lng: 51 }, { lat: 4, lng: 42 }, { lat: -8, lng: 40 }, { lat: -20, lng: 35 },
+    { lat: -34, lng: 19 }, { lat: -34, lng: 10 }, { lat: -27, lng: 2 }, { lat: -15, lng: -7 },
+    { lat: 0, lng: -10 }, { lat: 16, lng: -17 }, { lat: 29, lng: -12 }, { lat: 37, lng: -17 }
+  ],
+  [ // Australia
+    { lat: -11, lng: 113 }, { lat: -16, lng: 128 }, { lat: -24, lng: 137 }, { lat: -31, lng: 152 },
+    { lat: -39, lng: 146 }, { lat: -42, lng: 129 }, { lat: -34, lng: 115 }, { lat: -24, lng: 113 },
+    { lat: -11, lng: 113 }
+  ],
+  [ // Greenland
+    { lat: 83, lng: -73 }, { lat: 81, lng: -45 }, { lat: 76, lng: -18 }, { lat: 69, lng: -20 },
+    { lat: 61, lng: -43 }, { lat: 59, lng: -52 }, { lat: 67, lng: -62 }, { lat: 75, lng: -70 },
+    { lat: 83, lng: -73 }
+  ],
+  [ // Antarctica belt
+    { lat: -76, lng: -180 }, { lat: -72, lng: -120 }, { lat: -74, lng: -60 }, { lat: -73, lng: 0 },
+    { lat: -75, lng: 60 }, { lat: -73, lng: 120 }, { lat: -76, lng: 180 }
+  ]
+];
+
 const state = {
   pins: [],
   path: [],
   countryOutline: [],
   countryOutlineRaw: [],
+  currentCountryKey: '',
   outlineFilterMode: 'mainland',
   outlineSegmentsMeta: [],
   selectedOutlineSegmentIndex: 0,
+  outlineCache: {},
+  globalBaseline: {
+    loading: false,
+    loaded: false,
+    entries: []
+  },
   showGeoGrid: true,
   geoStepLinked: true,
   layerVisible: {
     pins: true,
     path: true,
     outline: true,
+    worldContext: true,
     geoGrid: true,
     topography: true,
     seaLevel: true
@@ -239,6 +302,259 @@ function initRenderControlDefaultsFromTheme() {
   ui.pathColor.value = cssColorToHex(cssVar('--accent-2', '#8dffcf'), '#8dffcf');
   ui.pinColor.value = cssColorToHex(cssVar('--text', '#f2fdff'), '#f2fdff');
   if (ui.pinLabelColor) ui.pinLabelColor.value = cssColorToHex(cssVar('--text', '#f2fdff'), '#f2fdff');
+  if (ui.worldContextColor) ui.worldContextColor.value = cssColorToHex(cssVar('--ds-text-muted', '#6ecae3'), '#6ecae3');
+}
+
+function normalizeCountryKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+function openBaselineDb() {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) {
+      reject(new Error('IndexedDB unavailable.'));
+      return;
+    }
+    const req = indexedDB.open(globalBaselineDbName, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(globalBaselineStore)) db.createObjectStore(globalBaselineStore);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('IndexedDB open failed.'));
+  });
+}
+
+async function idbGet(key) {
+  const db = await openBaselineDb();
+  return await new Promise((resolve, reject) => {
+    const tx = db.transaction(globalBaselineStore, 'readonly');
+    const store = tx.objectStore(globalBaselineStore);
+    const req = store.get(key);
+    req.onsuccess = () => resolve(req.result ?? null);
+    req.onerror = () => reject(req.error || new Error('IndexedDB read failed.'));
+    tx.oncomplete = () => db.close();
+  });
+}
+
+async function idbSet(key, value) {
+  const db = await openBaselineDb();
+  return await new Promise((resolve, reject) => {
+    const tx = db.transaction(globalBaselineStore, 'readwrite');
+    const store = tx.objectStore(globalBaselineStore);
+    const req = store.put(value, key);
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error || new Error('IndexedDB write failed.'));
+    tx.oncomplete = () => db.close();
+  });
+}
+
+function normalizeBaselineEntry(entry) {
+  if (!entry || !Array.isArray(entry.raw)) return null;
+  const raw = sanitizeOutlinePath(entry.raw, 2600);
+  if (raw.filter(isValidGeoPoint).length < 2) return null;
+  return {
+    key: normalizeCountryKey(entry.name || entry.key || ''),
+    name: String(entry.name || entry.key || 'Country'),
+    source: String(entry.source || 'baseline'),
+    fetchedAt: Number(entry.fetchedAt || 0),
+    raw
+  };
+}
+
+function sanitizeOutlinePath(rawPath, maxPoints = 5000) {
+  const pts = [];
+  for (const p of rawPath || []) {
+    if (!p || !isValidGeoPoint(p)) {
+      if (pts.length && pts[pts.length - 1] !== null) pts.push(null);
+      continue;
+    }
+    pts.push({ lat: Number(p.lat), lng: Number(p.lng) });
+  }
+  while (pts.length && pts[pts.length - 1] === null) pts.pop();
+  return downsampleOutlinePath(pts, maxPoints);
+}
+
+function loadOutlineCacheFromStorage() {
+  try {
+    const raw = localStorage.getItem(outlineCacheStorageKey);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    const out = {};
+    for (const [key, entry] of Object.entries(parsed)) {
+      if (!entry || !Array.isArray(entry.raw)) continue;
+      const path = sanitizeOutlinePath(entry.raw, 5000);
+      if (path.filter(isValidGeoPoint).length < 2) continue;
+      out[key] = {
+        name: String(entry.name || key),
+        source: String(entry.source || 'unknown'),
+        fetchedAt: Number(entry.fetchedAt || 0),
+        lastUsed: Number(entry.lastUsed || 0),
+        raw: path
+      };
+    }
+    state.outlineCache = out;
+  } catch (err) {
+    console.warn('Failed to load outline cache:', err);
+    state.outlineCache = {};
+  }
+}
+
+function saveOutlineCacheToStorage() {
+  try {
+    localStorage.setItem(outlineCacheStorageKey, JSON.stringify(state.outlineCache));
+  } catch (err) {
+    console.warn('Failed to save outline cache:', err);
+  }
+}
+
+function trimOutlineCache() {
+  const keys = Object.keys(state.outlineCache);
+  if (keys.length <= outlineCacheLimit) return;
+  keys.sort((a, b) => (state.outlineCache[b]?.lastUsed || 0) - (state.outlineCache[a]?.lastUsed || 0));
+  const keep = new Set(keys.slice(0, outlineCacheLimit));
+  for (const k of Object.keys(state.outlineCache)) {
+    if (!keep.has(k)) delete state.outlineCache[k];
+  }
+}
+
+function getCachedOutlineEntry(countryName) {
+  const key = normalizeCountryKey(countryName);
+  return key ? state.outlineCache[key] || null : null;
+}
+
+async function loadGlobalBaselineFromStorage() {
+  try {
+    const payload = await idbGet(globalBaselineKey);
+    const entries = Array.isArray(payload?.entries) ? payload.entries.map(normalizeBaselineEntry).filter(Boolean) : [];
+    state.globalBaseline.entries = entries;
+    state.globalBaseline.loaded = entries.length > 0;
+    markStaticDirty();
+    updateDebugView();
+    requestRender();
+  } catch (err) {
+    console.warn('Failed to load global baseline:', err);
+    state.globalBaseline.entries = [];
+    state.globalBaseline.loaded = false;
+  }
+}
+
+function parseGlobalBaselineGeoJSON(featureCollection) {
+  const features = Array.isArray(featureCollection?.features) ? featureCollection.features : [];
+  const out = [];
+  for (const f of features) {
+    const geometry = f?.geometry;
+    const raw = buildOutlinePathFromGeoJSON(geometry);
+    if (raw.filter(isValidGeoPoint).length < 2) continue;
+    const props = f?.properties || {};
+    const name = props.ADMIN || props.NAME_EN || props.name || props.NAME || 'Country';
+    const normalized = sanitizeOutlinePath(raw, 2400);
+    out.push({
+      key: normalizeCountryKey(name),
+      name: String(name),
+      source: 'global-baseline',
+      fetchedAt: Date.now(),
+      raw: normalized
+    });
+  }
+  return out.filter(e => e.key && e.raw.filter(isValidGeoPoint).length >= 2);
+}
+
+async function syncGlobalBaselineFromNetwork() {
+  if (state.globalBaseline.loading) return;
+  if (!ensureNetworkContext('global context baseline sync')) return;
+  state.globalBaseline.loading = true;
+  setButtonBusy(ui.syncGlobalBaseline, true, 'Syncing...');
+  try {
+    setStatus('Syncing global outline baseline...');
+    const sources = [
+      'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson',
+      'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson'
+    ];
+    let lastErr = null;
+    let parsed = [];
+    for (const src of sources) {
+      try {
+        const res = await fetch(src, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        parsed = parseGlobalBaselineGeoJSON(json);
+        if (parsed.length >= 100) break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (parsed.length < 20) throw lastErr || new Error('Global baseline parse produced too few countries.');
+    state.globalBaseline.entries = parsed;
+    state.globalBaseline.loaded = true;
+    await idbSet(globalBaselineKey, { version: 2, fetchedAt: Date.now(), entries: parsed });
+    setStatus(`Global baseline synced (${parsed.length} countries).`);
+    toast(`Global baseline synced (${parsed.length})`, 'ok');
+    markStaticDirty();
+    updateRawView();
+    updateDebugView();
+    requestRender();
+  } catch (err) {
+    console.error(err);
+    const reason = err?.message ? ` ${err.message}` : '';
+    setStatus(`Global baseline sync failed.${reason}`);
+    toast('Global baseline sync failed', 'err');
+  } finally {
+    state.globalBaseline.loading = false;
+    setButtonBusy(ui.syncGlobalBaseline, false);
+  }
+}
+
+function upsertOutlineCacheEntry(countryName, rawPath, source = 'nominatim') {
+  const key = normalizeCountryKey(countryName);
+  if (!key) return;
+  const path = sanitizeOutlinePath(rawPath, 5000);
+  if (path.filter(isValidGeoPoint).length < 2) return;
+  const now = Date.now();
+  state.outlineCache[key] = {
+    name: String(countryName || key),
+    source: String(source || 'unknown'),
+    fetchedAt: now,
+    lastUsed: now,
+    raw: path
+  };
+  trimOutlineCache();
+  saveOutlineCacheToStorage();
+}
+
+function touchCachedOutline(countryName) {
+  const key = normalizeCountryKey(countryName);
+  if (!key || !state.outlineCache[key]) return;
+  state.outlineCache[key].lastUsed = Date.now();
+  saveOutlineCacheToStorage();
+}
+
+function getContextOutlineEntries() {
+  const current = state.currentCountryKey;
+  const cached = Object.entries(state.outlineCache)
+    .filter(([key, entry]) => key !== current && entry?.raw?.length)
+    .sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0))
+    .slice(0, 14)
+    .map(([, entry]) => entry);
+  const seen = new Set(cached.map(e => normalizeCountryKey(e?.name || '')));
+  const baseline = (state.globalBaseline.entries || [])
+    .filter(e => e?.raw?.length && !seen.has(normalizeCountryKey(e.name || e.key || '')) && normalizeCountryKey(e.name || e.key || '') !== current)
+    .slice(0, 220);
+  return [...cached, ...baseline];
+}
+
+function applyLoadedCountryOutline(countryName, rawPath, sourceLabel = 'cache') {
+  state.currentCountryKey = normalizeCountryKey(countryName);
+  state.countryOutlineRaw = sanitizeOutlinePath(rawPath, 5000);
+  applyCountryOutlineFilter();
+  touchCachedOutline(countryName);
+  const count = state.countryOutline.filter(isValidGeoPoint).length;
+  setStatus(`Loaded ${countryName} outline from ${sourceLabel} (${count} vertices).`);
+  markStaticDirty();
+  updateRawView();
+  updateDebugView();
+  requestRender();
 }
 
 function applyTheme(name) {
@@ -516,6 +832,7 @@ function syncActionAvailability() {
   if (ui.sampleRoute && !ui.sampleRoute.classList.contains('is-busy')) ui.sampleRoute.disabled = state.pins.length < 2;
   if (ui.clearRoute) ui.clearRoute.disabled = !hasRouteOrMap;
   if (ui.loadCountry && !ui.loadCountry.classList.contains('is-busy')) ui.loadCountry.disabled = !hasCountryName;
+  if (ui.refreshCountry && !ui.refreshCountry.classList.contains('is-busy')) ui.refreshCountry.disabled = !hasCountryName;
   if (ui.outlineSegmentSelect) ui.outlineSegmentSelect.disabled = !hasOutlineSegments;
   if (ui.centerOutlineSegment) ui.centerOutlineSegment.disabled = !hasOutlineSegments;
   if (ui.fitGeoWindow) ui.fitGeoWindow.disabled = !hasBoundsSource;
@@ -543,6 +860,7 @@ function syncLayerToggleButtons() {
   setLayerToggleButton(ui.visPins, state.layerVisible.pins);
   setLayerToggleButton(ui.visPath, state.layerVisible.path);
   setLayerToggleButton(ui.visOutline, state.layerVisible.outline);
+  setLayerToggleButton(ui.visWorldContext, state.layerVisible.worldContext);
   setLayerToggleButton(ui.visGeoGrid, state.layerVisible.geoGrid);
   setLayerToggleButton(ui.visTopography, state.layerVisible.topography);
   setLayerToggleButton(ui.visSeaLevel, state.layerVisible.seaLevel);
@@ -594,9 +912,16 @@ function updateRawView() {
     path: state.path,
     countryOutline: state.countryOutline,
     countryOutlineRaw: state.countryOutlineRaw,
+    currentCountryKey: state.currentCountryKey,
     outlineFilterMode: state.outlineFilterMode,
     selectedOutlineSegmentIndex: state.selectedOutlineSegmentIndex,
     outlineSegmentsMeta: state.outlineSegmentsMeta,
+    outlineCacheEntries: Object.keys(state.outlineCache).length,
+    globalBaseline: {
+      loaded: !!state.globalBaseline.loaded,
+      loading: !!state.globalBaseline.loading,
+      entries: state.globalBaseline.entries.length
+    },
     showGeoGrid: state.showGeoGrid,
     geoStepLinked: state.geoStepLinked,
     layerVisible: state.layerVisible,
@@ -646,12 +971,16 @@ function updateDebugView() {
     `Canvas: ${state.dims.w.toFixed(0)} x ${state.dims.h.toFixed(0)} @${state.dims.ratio.toFixed(2)}`,
     '',
     `Country outline loaded: ${segments.length ? 'yes' : 'no'}`,
+    `Current country key: ${state.currentCountryKey || 'n/a'}`,
     `Outline filter: ${state.outlineFilterMode}`,
     `Outline segments: ${segments.length}`,
     `Outline vertices: ${outlinePts}`,
+    `Outline cache entries: ${Object.keys(state.outlineCache).length}`,
+    `Global baseline loaded: ${state.globalBaseline.loaded ? 'yes' : 'no'}`,
+    `Global baseline entries: ${state.globalBaseline.entries.length}`,
     `Selected landmass index: ${state.selectedOutlineSegmentIndex}`,
     `Coordinate markers: ${state.showGeoGrid ? 'on' : 'off'}`,
-    `Layer visibility: pins=${state.layerVisible.pins ? '1' : '0'} path=${state.layerVisible.path ? '1' : '0'} outline=${state.layerVisible.outline ? '1' : '0'} grid=${state.layerVisible.geoGrid ? '1' : '0'} topo=${state.layerVisible.topography ? '1' : '0'} sea=${state.layerVisible.seaLevel ? '1' : '0'}`,
+    `Layer visibility: pins=${state.layerVisible.pins ? '1' : '0'} path=${state.layerVisible.path ? '1' : '0'} outline=${state.layerVisible.outline ? '1' : '0'} context=${state.layerVisible.worldContext ? '1' : '0'} grid=${state.layerVisible.geoGrid ? '1' : '0'} topo=${state.layerVisible.topography ? '1' : '0'} sea=${state.layerVisible.seaLevel ? '1' : '0'}`,
     `Outline lng domain: ${lngDomain}`,
     '',
     `Bounds minLat/maxLat: ${b.minLat.toFixed(6)} / ${b.maxLat.toFixed(6)}`,
@@ -1279,6 +1608,24 @@ function project(x, y, z, cam) {
   return { x: cx + rx, y: cy + ry, z: z2 };
 }
 
+function projectWithDepth(x, y, z, cam) {
+  const x1 = x * cam.cy + z * cam.sy;
+  const z1 = -x * cam.sy + z * cam.cy;
+  const yShifted = y - cam.focusY;
+  const y2 = yShifted * cam.cx - z1 * cam.sx;
+  const zCam = yShifted * cam.sx + z1 * cam.cx;
+  const z2 = zCam + cam.zoom;
+  const persp = (cam.lensFactor * cam.focalNorm) / Math.max(0.6, z2);
+  const scale = state.dims.w * 0.38;
+  const cx = state.dims.w * 0.5;
+  const cy = state.dims.h * 0.53;
+  const px0 = cx + x1 * persp * scale;
+  const py0 = cy + y2 * persp * scale;
+  const rx = (px0 - cx) * cam.cr - (py0 - cy) * cam.sr;
+  const ry = (px0 - cx) * cam.sr + (py0 - cy) * cam.cr;
+  return { x: cx + rx, y: cy + ry, z: z2, depth: zCam };
+}
+
 function getDepthOfFieldForZ(z) {
   const strength = state.camera.dofStrength || 0;
   if (strength <= 0) return { alpha: 1, blur: 0 };
@@ -1514,6 +1861,65 @@ function drawCountryOutline(targetCtx, cam) {
   targetCtx.restore();
 }
 
+function drawWorldContextOutline(targetCtx, cam) {
+  if (!state.layerVisible.worldContext) return;
+  const entries = getContextOutlineEntries();
+  const useFallback = entries.length < 2 && !(state.globalBaseline.entries?.length);
+  const color = ui.worldContextColor?.value || cssVar('--ds-text-muted', '#6ecae3');
+  const opacity = Number(ui.worldContextOpacity?.value || 0.22);
+  const width = Number(ui.worldContextWidth?.value || 0.9);
+  targetCtx.save();
+  targetCtx.strokeStyle = hexToRgba(color, opacity);
+  targetCtx.lineWidth = width;
+  targetCtx.shadowColor = color;
+  targetCtx.shadowBlur = 2;
+  if (useFallback) {
+    targetCtx.strokeStyle = hexToRgba(color, opacity * 0.7);
+    for (const segment of WORLD_CONTEXT_FALLBACK) {
+      if (!Array.isArray(segment) || segment.length < 2) continue;
+      let drawing = false;
+      targetCtx.beginPath();
+      for (const pt of segment) {
+        if (!isValidGeoPoint(pt)) {
+          drawing = false;
+          continue;
+        }
+        const w = geoToCameraWorld(pt.lat, pt.lng, 0);
+        const p = project(w.x, w.y, w.z, cam);
+        if (!drawing) {
+          targetCtx.moveTo(p.x, p.y);
+          drawing = true;
+        } else {
+          targetCtx.lineTo(p.x, p.y);
+        }
+      }
+      if (drawing) targetCtx.stroke();
+    }
+  }
+  for (const entry of entries) {
+    const path = Array.isArray(entry?.raw) ? downsampleOutlinePath(entry.raw, 1700) : [];
+    if (path.filter(isValidGeoPoint).length < 2) continue;
+    let drawing = false;
+    targetCtx.beginPath();
+    for (const pt of path) {
+      if (!isValidGeoPoint(pt)) {
+        drawing = false;
+        continue;
+      }
+      const w = geoToCameraWorld(pt.lat, pt.lng, 0);
+      const p = project(w.x, w.y, w.z, cam);
+      if (!drawing) {
+        targetCtx.moveTo(p.x, p.y);
+        drawing = true;
+      } else {
+        targetCtx.lineTo(p.x, p.y);
+      }
+    }
+    if (drawing) targetCtx.stroke();
+  }
+  targetCtx.restore();
+}
+
 function niceStep(span, targetLines = 6) {
   const raw = Math.max(span / Math.max(2, targetLines), 1e-6);
   const p = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -1547,7 +1953,16 @@ function drawGeoGrid(targetCtx, cam) {
       targetCtx.beginPath();
       for (let lat = -85; lat <= 85 + 1e-6; lat += 2.5) {
         const w = geoToCameraWorld(lat, lng, 0);
-        const p = project(w.x, w.y, w.z, cam);
+        const p = projectWithDepth(w.x, w.y, w.z, cam);
+        const frontFacing = p.depth <= 0;
+        if (!frontFacing) {
+          if (started) {
+            targetCtx.stroke();
+            targetCtx.beginPath();
+            started = false;
+          }
+          continue;
+        }
         if (!started) {
           targetCtx.moveTo(p.x, p.y);
           started = true;
@@ -1562,7 +1977,16 @@ function drawGeoGrid(targetCtx, cam) {
       targetCtx.beginPath();
       for (let lng = -180; lng <= 180 + 1e-6; lng += lonDrawStep) {
         const w = geoToCameraWorld(lat, lng, 0);
-        const p = project(w.x, w.y, w.z, cam);
+        const p = projectWithDepth(w.x, w.y, w.z, cam);
+        const frontFacing = p.depth <= 0;
+        if (!frontFacing) {
+          if (started) {
+            targetCtx.stroke();
+            targetCtx.beginPath();
+            started = false;
+          }
+          continue;
+        }
         if (!started) {
           targetCtx.moveTo(p.x, p.y);
           started = true;
@@ -2473,13 +2897,27 @@ async function fetchRouteFromOSRM() {
   }
 }
 
-async function fetchCountryOutline(name) {
+async function fetchCountryOutline(name, options = {}) {
+  const { forceRefresh = false } = options;
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return;
+
+  if (!forceRefresh) {
+    const cached = getCachedOutlineEntry(trimmed);
+    if (cached?.raw?.length) {
+      applyLoadedCountryOutline(trimmed, cached.raw, `cache/${cached.source || 'local'}`);
+      toast(`Loaded ${trimmed} from local cache`, 'ok', 1400);
+      return;
+    }
+  }
+
   if (!ensureNetworkContext('country outline lookup')) return;
-  setButtonBusy(ui.loadCountry, true, 'Loading...');
+  const busyBtn = forceRefresh ? ui.refreshCountry : ui.loadCountry;
+  setButtonBusy(busyBtn, true, forceRefresh ? 'Refreshing...' : 'Loading...');
 
   try {
-    setStatus(`Fetching country outline for ${name}...`);
-    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&country=${encodeURIComponent(name)}&limit=1`;
+    setStatus(`${forceRefresh ? 'Refreshing' : 'Fetching'} country outline for ${trimmed}...`);
+    const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&country=${encodeURIComponent(trimmed)}&limit=1`;
     const nominatimRes = await fetch(nominatimUrl, { headers: { 'Accept-Language': 'en' } });
     const nominatimText = await nominatimRes.text();
     let geo = null;
@@ -2494,10 +2932,8 @@ async function fetchCountryOutline(name) {
 
     const nominatimPts = buildOutlinePathFromGeoJSON(item.geojson);
     if (nominatimPts.length >= 2) {
-      state.countryOutlineRaw = downsampleOutlinePath(nominatimPts, 5000);
-      applyCountryOutlineFilter();
-      const count = state.countryOutline.filter(isValidGeoPoint).length;
-      setStatus(`Loaded ${name} outline from Nominatim (${count} vertices).`);
+      upsertOutlineCacheEntry(trimmed, nominatimPts, 'nominatim');
+      applyLoadedCountryOutline(trimmed, nominatimPts, 'Nominatim');
       return;
     }
 
@@ -2538,10 +2974,8 @@ async function fetchCountryOutline(name) {
           }
         }
         if (pts.filter(isValidGeoPoint).length < 2) throw new Error('No boundary geometry from Overpass');
-        state.countryOutlineRaw = downsampleOutlinePath(pts, 5000);
-        applyCountryOutlineFilter();
-        const count = state.countryOutline.filter(isValidGeoPoint).length;
-        setStatus(`Loaded ${name} outline from Overpass (${count} vertices).`);
+        upsertOutlineCacheEntry(trimmed, pts, 'overpass');
+        applyLoadedCountryOutline(trimmed, pts, 'Overpass');
         return;
       } catch (err) {
         lastErr = err;
@@ -2551,10 +2985,10 @@ async function fetchCountryOutline(name) {
   } catch (err) {
     console.error(err);
     const reason = err?.message ? ` ${err.message}` : '';
-    setStatus(`Country outline lookup failed for ${name}.${reason}`);
+    setStatus(`Country outline lookup failed for ${trimmed}.${reason}`);
     toast('Country outline fetch failed', 'err');
   } finally {
-    setButtonBusy(ui.loadCountry, false);
+    setButtonBusy(busyBtn, false);
   }
 }
 function getStaticLayerKey() {
@@ -2593,13 +3027,19 @@ function getStaticLayerKey() {
     state.layerVisible.pins ? 1 : 0,
     state.layerVisible.path ? 1 : 0,
     state.layerVisible.outline ? 1 : 0,
+    state.layerVisible.worldContext ? 1 : 0,
     state.layerVisible.geoGrid ? 1 : 0,
     state.layerVisible.topography ? 1 : 0,
     state.layerVisible.seaLevel ? 1 : 0,
+    ui.worldContextColor?.value || '',
+    ui.worldContextOpacity?.value || '',
+    ui.worldContextWidth?.value || '',
     state.geoStepLinked ? 1 : 0,
     cssVar('--tk-country-outline', ''),
     cssVar('--tk-country-shadow', ''),
     cssVar('--tk-scanline', ''),
+    state.currentCountryKey || '',
+    Object.keys(state.outlineCache).length,
     state.countryOutline.length,
     state.geoWindow.centerLat.toFixed(4),
     state.geoWindow.centerLng.toFixed(4),
@@ -2621,6 +3061,7 @@ function rebuildStaticLayer(cam) {
   drawTerrain(lctx, cam);
   drawGeoGrid(lctx, cam);
   drawTopographyContours(lctx, cam);
+  drawWorldContextOutline(lctx, cam);
   drawCountryOutline(lctx, cam);
 }
 
@@ -2843,6 +3284,7 @@ ui.clearRoute.addEventListener('click', () => {
   state.path = [];
   state.countryOutline = [];
   state.countryOutlineRaw = [];
+  state.currentCountryKey = '';
   state.outlineSegmentsMeta = [];
   state.selectedOutlineSegmentIndex = 0;
   state.geoWindow.manual = false;
@@ -2888,6 +3330,13 @@ ui.timeline.addEventListener('input', () => {
 ui.loadCountry.addEventListener('click', () => {
   const name = ui.countryName.value.trim();
   if (name) fetchCountryOutline(name);
+});
+ui.refreshCountry?.addEventListener('click', () => {
+  const name = ui.countryName.value.trim();
+  if (name) fetchCountryOutline(name, { forceRefresh: true });
+});
+ui.syncGlobalBaseline?.addEventListener('click', () => {
+  syncGlobalBaselineFromNetwork();
 });
 ui.countryName?.addEventListener('input', syncActionAvailability);
 ui.outlineMainlandOnly?.addEventListener('change', () => {
@@ -2982,6 +3431,7 @@ ui.geoStepLink?.addEventListener('input', () => {
 ui.visPins?.addEventListener('click', () => setLayerVisibility('pins', !state.layerVisible.pins));
 ui.visPath?.addEventListener('click', () => setLayerVisibility('path', !state.layerVisible.path));
 ui.visOutline?.addEventListener('click', () => setLayerVisibility('outline', !state.layerVisible.outline));
+ui.visWorldContext?.addEventListener('click', () => setLayerVisibility('worldContext', !state.layerVisible.worldContext));
 ui.visGeoGrid?.addEventListener('click', () => setLayerVisibility('geoGrid', !state.layerVisible.geoGrid));
 ui.visTopography?.addEventListener('click', () => setLayerVisibility('topography', !state.layerVisible.topography));
 ui.visSeaLevel?.addEventListener('click', () => setLayerVisibility('seaLevel', !state.layerVisible.seaLevel));
@@ -3062,7 +3512,7 @@ ui.viewBack?.addEventListener('click', () => setCameraPreset('back'));
   });
 });
 [ui.pathColor, ui.pathOpacity, ui.pathWidth, ui.pinColor, ui.pinLabelColor, ui.pinSize].filter(Boolean).forEach(el => el.addEventListener('input', requestRender));
-[ui.outlineColor, ui.outlineOpacity, ui.outlineWidth, ui.topoColor, ui.topoOpacity, ui.topoLineWidth, ui.topoHeightScale]
+[ui.outlineColor, ui.outlineOpacity, ui.outlineWidth, ui.worldContextColor, ui.worldContextOpacity, ui.worldContextWidth, ui.topoColor, ui.topoOpacity, ui.topoLineWidth, ui.topoHeightScale]
   .filter(Boolean)
   .forEach(el => el.addEventListener('input', () => {
     markStaticDirty();
@@ -3158,6 +3608,8 @@ window.addEventListener('resize', resize);
 const savedTheme = localStorage.getItem(themeStorageKey) || document.documentElement.getAttribute('data-theme') || 'mono-slate';
 applyTheme(savedTheme);
 ui.themeSelectApp.addEventListener('change', (e) => applyTheme(e.target.value));
+loadOutlineCacheFromStorage();
+loadGlobalBaselineFromStorage();
 setupTabs();
 setupCollapsibleGroups();
 updatePlayPauseLabel();
