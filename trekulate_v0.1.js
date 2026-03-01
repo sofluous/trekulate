@@ -426,7 +426,22 @@ function getGeoWindowBounds() {
 
 function boxesIntersect(a, b) {
   if (!a || !b) return true;
-  return !(a.maxLat < b.minLat || a.minLat > b.maxLat || a.maxLng < b.minLng || a.minLng > b.maxLng);
+  const latOverlap = !(a.maxLat < b.minLat || a.minLat > b.maxLat);
+  if (!latOverlap) return false;
+  const lngOverlap = (x1, x2, y1, y2) => !(x2 < y1 || x1 > y2);
+  // Handle dateline-adjacent windows by checking wrapped longitude offsets.
+  if (lngOverlap(a.minLng, a.maxLng, b.minLng, b.maxLng)) return true;
+  if (lngOverlap(a.minLng - 360, a.maxLng - 360, b.minLng, b.maxLng)) return true;
+  if (lngOverlap(a.minLng + 360, a.maxLng + 360, b.minLng, b.maxLng)) return true;
+  return false;
+}
+
+function outlineEntryArea(entry) {
+  const b = entry?.bbox;
+  if (!b) return 0;
+  const latSpan = Math.max(0, b.maxLat - b.minLat);
+  const lngSpan = Math.max(0, b.maxLng - b.minLng);
+  return latSpan * lngSpan;
 }
 
 function loadOutlineCacheFromStorage() {
@@ -617,6 +632,7 @@ function getContextOutlineEntries() {
   const baseline = (state.globalBaseline.entries || [])
     .filter(e => e?.raw?.length && !seen.has(normalizeCountryKey(e.key || e.name || '')))
     .filter(e => (projection === 'flat' ? boxesIntersect(e.bbox, flatWindow) : true))
+    .sort((a, b) => outlineEntryArea(b) - outlineEntryArea(a))
     .slice(0, baselineCap);
   return [...cached, ...baseline];
 }
@@ -2491,6 +2507,15 @@ function drawTopographyContours(targetCtx, cam) {
   const topoHeightScale = Number(ui.topoHeightScale?.value || 0.26);
   const clipPolys = splitOutlineSegments(state.countryOutline).map(seg => seg.filter(isValidGeoPoint)).filter(seg => seg.length >= 3);
   const clipToOutline = clipPolys.length > 0;
+  const dragging = !!state.interaction.dragging;
+  const cellCount = Math.max(1, (topo.rows - 1) * (topo.cols - 1));
+  let cellStride = 1;
+  if (dragging) {
+    cellStride = cellCount > 9000 ? 3 : 2;
+  } else if (cellCount > 16000) {
+    cellStride = 2;
+  }
+  const levelStride = dragging && levels.length > 10 ? 2 : 1;
 
   const cellPoint = (r, c, elevFor3d) => {
     const lat = topo.latList[r];
@@ -2545,23 +2570,28 @@ function drawTopographyContours(targetCtx, cam) {
   targetCtx.shadowBlur = mode3d ? 6 : 3;
   targetCtx.globalAlpha = mode3d ? 0.9 : 0.72;
 
-  for (let r = 0; r < topo.rows - 1; r++) {
-    for (let c = 0; c < topo.cols - 1; c++) {
+  for (let r = 0; r < topo.rows - 1; r += cellStride) {
+    for (let c = 0; c < topo.cols - 1; c += cellStride) {
       if (clipToOutline) {
-        const centerLat = (topo.latList[r] + topo.latList[r + 1]) * 0.5;
-        const centerLng = (topo.lngList[c] + topo.lngList[c + 1]) * 0.5;
+        const r1 = Math.min(topo.rows - 1, r + cellStride);
+        const c1 = Math.min(topo.cols - 1, c + cellStride);
+        const centerLat = (topo.latList[r] + topo.latList[r1]) * 0.5;
+        const centerLng = (topo.lngList[c] + topo.lngList[c1]) * 0.5;
         if (!pointInAnyPolygon(centerLat, centerLng, clipPolys)) continue;
       }
+      const r1 = Math.min(topo.rows - 1, r + cellStride);
+      const c1 = Math.min(topo.cols - 1, c + cellStride);
       const v0 = topo.values[r][c];
-      const v1 = topo.values[r][c + 1];
-      const v2 = topo.values[r + 1][c + 1];
-      const v3 = topo.values[r + 1][c];
+      const v1 = topo.values[r][c1];
+      const v2 = topo.values[r1][c1];
+      const v3 = topo.values[r1][c];
       const p0 = cellPoint(r, c, v0);
-      const p1 = cellPoint(r, c + 1, v1);
-      const p2 = cellPoint(r + 1, c + 1, v2);
-      const p3 = cellPoint(r + 1, c, v3);
+      const p1 = cellPoint(r, c1, v1);
+      const p2 = cellPoint(r1, c1, v2);
+      const p3 = cellPoint(r1, c, v3);
 
-      for (const level of levels) {
+      for (let li = 0; li < levels.length; li += levelStride) {
+        const level = levels[li];
         const idx =
           (v0 >= level ? 1 : 0) |
           (v1 >= level ? 2 : 0) |
