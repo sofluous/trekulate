@@ -128,6 +128,7 @@ const ui = {
   topoContours: document.getElementById('topoContours'),
   topoMode: document.getElementById('topoMode'),
   loadTopography: document.getElementById('loadTopography'),
+  refreshTopography: document.getElementById('refreshTopography'),
   clearTopography: document.getElementById('clearTopography'),
   topoStatus: document.getElementById('topoStatus'),
   exportPng: document.getElementById('exportPng'),
@@ -147,6 +148,7 @@ const outlineCacheLimit = 24;
 const globalBaselineDbName = 'trekulate.cache.db';
 const globalBaselineStore = 'kv';
 const globalBaselineKey = 'worldContextBaseline.v2';
+const topographyCachePrefix = 'topography.v1';
 const CAMERA_DEFAULT = {
   yaw: -0.76,
   pitch: 0.93,
@@ -262,7 +264,9 @@ const state = {
     max: 0,
     mode: 'contour2d',
     contourCount: 10,
-    source: 'opentopodata/aster30m'
+    source: 'opentopodata/aster30m',
+    cacheKey: '',
+    cacheState: 'none'
   },
   selectedPinId: null,
   routeDirty: false,
@@ -353,13 +357,13 @@ function normalizeBaselineEntry(entry) {
   if (!entry || !Array.isArray(entry.raw)) return null;
   const raw = sanitizeOutlinePath(entry.raw, 2600);
   if (raw.filter(isValidGeoPoint).length < 2) return null;
-  return {
+  return annotateOutlineEntry({
     key: normalizeCountryKey(entry.name || entry.key || ''),
     name: String(entry.name || entry.key || 'Country'),
     source: String(entry.source || 'baseline'),
     fetchedAt: Number(entry.fetchedAt || 0),
     raw
-  };
+  });
 }
 
 function sanitizeOutlinePath(rawPath, maxPoints = 5000) {
@@ -373,6 +377,56 @@ function sanitizeOutlinePath(rawPath, maxPoints = 5000) {
   }
   while (pts.length && pts[pts.length - 1] === null) pts.pop();
   return downsampleOutlinePath(pts, maxPoints);
+}
+
+function computeOutlineBounds(path) {
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+  for (const pt of path || []) {
+    if (!isValidGeoPoint(pt)) continue;
+    if (pt.lat < minLat) minLat = pt.lat;
+    if (pt.lat > maxLat) maxLat = pt.lat;
+    if (pt.lng < minLng) minLng = pt.lng;
+    if (pt.lng > maxLng) maxLng = pt.lng;
+  }
+  if (!Number.isFinite(minLat) || !Number.isFinite(maxLat) || !Number.isFinite(minLng) || !Number.isFinite(maxLng)) {
+    return null;
+  }
+  return { minLat, maxLat, minLng, maxLng };
+}
+
+function annotateOutlineEntry(entry) {
+  if (!entry || !Array.isArray(entry.raw)) return entry;
+  entry.bbox = computeOutlineBounds(entry.raw);
+  entry._renderPath = null;
+  entry._renderBudget = 0;
+  return entry;
+}
+
+function getEntryRenderPath(entry, budget) {
+  if (!entry || !Array.isArray(entry.raw)) return [];
+  const safeBudget = clamp(Math.floor(budget), 180, 2200);
+  if (entry._renderPath && entry._renderBudget === safeBudget) return entry._renderPath;
+  entry._renderPath = downsampleOutlinePath(entry.raw, safeBudget);
+  entry._renderBudget = safeBudget;
+  return entry._renderPath;
+}
+
+function getGeoWindowBounds() {
+  const half = Math.max(state.geoWindow.spanDeg * 0.5, 1e-6);
+  return {
+    minLat: state.geoWindow.centerLat - half,
+    maxLat: state.geoWindow.centerLat + half,
+    minLng: state.geoWindow.centerLng - half,
+    maxLng: state.geoWindow.centerLng + half
+  };
+}
+
+function boxesIntersect(a, b) {
+  if (!a || !b) return true;
+  return !(a.maxLat < b.minLat || a.minLat > b.maxLat || a.maxLng < b.minLng || a.minLng > b.maxLng);
 }
 
 function loadOutlineCacheFromStorage() {
@@ -391,7 +445,10 @@ function loadOutlineCacheFromStorage() {
         source: String(entry.source || 'unknown'),
         fetchedAt: Number(entry.fetchedAt || 0),
         lastUsed: Number(entry.lastUsed || 0),
-        raw: path
+        raw: path,
+        bbox: computeOutlineBounds(path),
+        _renderPath: null,
+        _renderBudget: 0
       };
     }
     state.outlineCache = out;
@@ -403,7 +460,18 @@ function loadOutlineCacheFromStorage() {
 
 function saveOutlineCacheToStorage() {
   try {
-    localStorage.setItem(outlineCacheStorageKey, JSON.stringify(state.outlineCache));
+    const persistable = {};
+    for (const [key, entry] of Object.entries(state.outlineCache || {})) {
+      if (!entry || !Array.isArray(entry.raw)) continue;
+      persistable[key] = {
+        name: entry.name,
+        source: entry.source,
+        fetchedAt: Number(entry.fetchedAt || 0),
+        lastUsed: Number(entry.lastUsed || 0),
+        raw: entry.raw
+      };
+    }
+    localStorage.setItem(outlineCacheStorageKey, JSON.stringify(persistable));
   } catch (err) {
     console.warn('Failed to save outline cache:', err);
   }
@@ -458,7 +526,9 @@ function parseGlobalBaselineGeoJSON(featureCollection) {
       raw: normalized
     });
   }
-  return out.filter(e => e.key && e.raw.filter(isValidGeoPoint).length >= 2);
+  return out
+    .filter(e => e.key && e.raw.filter(isValidGeoPoint).length >= 2)
+    .map(annotateOutlineEntry);
 }
 
 async function syncGlobalBaselineFromNetwork() {
@@ -512,13 +582,13 @@ function upsertOutlineCacheEntry(countryName, rawPath, source = 'nominatim') {
   const path = sanitizeOutlinePath(rawPath, 5000);
   if (path.filter(isValidGeoPoint).length < 2) return;
   const now = Date.now();
-  state.outlineCache[key] = {
+  state.outlineCache[key] = annotateOutlineEntry({
     name: String(countryName || key),
     source: String(source || 'unknown'),
     fetchedAt: now,
     lastUsed: now,
     raw: path
-  };
+  });
   trimOutlineCache();
   saveOutlineCacheToStorage();
 }
@@ -531,16 +601,23 @@ function touchCachedOutline(countryName) {
 }
 
 function getContextOutlineEntries() {
-  const current = state.currentCountryKey;
+  const projection = getMapProjectionMode();
+  const drag = !!state.interaction.dragging;
+  const flatWindow = getGeoWindowBounds();
   const cached = Object.entries(state.outlineCache)
-    .filter(([key, entry]) => key !== current && entry?.raw?.length)
+    .filter(([, entry]) => entry?.raw?.length)
+    .filter(([, entry]) => (projection === 'flat' ? boxesIntersect(entry.bbox, flatWindow) : true))
     .sort((a, b) => (b[1].lastUsed || 0) - (a[1].lastUsed || 0))
-    .slice(0, 14)
+    .slice(0, drag ? 8 : 14)
     .map(([, entry]) => entry);
-  const seen = new Set(cached.map(e => normalizeCountryKey(e?.name || '')));
+  const seen = new Set(cached.map(e => normalizeCountryKey(e?.key || e?.name || '')));
+  const baselineCap = projection === 'flat'
+    ? (drag ? 48 : 92)
+    : (drag ? 70 : 130);
   const baseline = (state.globalBaseline.entries || [])
-    .filter(e => e?.raw?.length && !seen.has(normalizeCountryKey(e.name || e.key || '')) && normalizeCountryKey(e.name || e.key || '') !== current)
-    .slice(0, 220);
+    .filter(e => e?.raw?.length && !seen.has(normalizeCountryKey(e.key || e.name || '')))
+    .filter(e => (projection === 'flat' ? boxesIntersect(e.bbox, flatWindow) : true))
+    .slice(0, baselineCap);
   return [...cached, ...baseline];
 }
 
@@ -836,7 +913,9 @@ function syncActionAvailability() {
   if (ui.outlineSegmentSelect) ui.outlineSegmentSelect.disabled = !hasOutlineSegments;
   if (ui.centerOutlineSegment) ui.centerOutlineSegment.disabled = !hasOutlineSegments;
   if (ui.fitGeoWindow) ui.fitGeoWindow.disabled = !hasBoundsSource;
+  if (ui.loadTopography && !ui.loadTopography.classList.contains('is-busy')) ui.loadTopography.disabled = !hasBoundsSource;
   if (ui.clearTopography && !ui.clearTopography.classList.contains('is-busy')) ui.clearTopography.disabled = !hasTopo;
+  if (ui.refreshTopography && !ui.refreshTopography.classList.contains('is-busy')) ui.refreshTopography.disabled = !hasBoundsSource;
 }
 
 function setLayerToggleButton(btn, isOn) {
@@ -935,7 +1014,9 @@ function updateRawView() {
       max: state.topography.max,
       mode: state.topography.mode,
       contourCount: state.topography.contourCount,
-      source: state.topography.source
+      source: state.topography.source,
+      cacheKey: state.topography.cacheKey,
+      cacheState: state.topography.cacheState
     },
     routeDirty: state.routeDirty,
     timelineMode: state.timelineMode,
@@ -997,6 +1078,8 @@ function updateDebugView() {
     '',
     `Topography loaded: ${topo.loaded ? 'yes' : 'no'}`,
     `Topography source: ${topo.source}`,
+    `Topography cache key: ${topo.cacheKey || 'n/a'}`,
+    `Topography cache state: ${topo.cacheState || 'none'}`,
     `Topography grid: ${topo.rows} x ${topo.cols}`,
     `Topography elevation min/max: ${Number(topo.min).toFixed(2)} / ${Number(topo.max).toFixed(2)}`,
     `Topography mode: ${topo.mode}`,
@@ -1865,6 +1948,9 @@ function drawWorldContextOutline(targetCtx, cam) {
   if (!state.layerVisible.worldContext) return;
   const entries = getContextOutlineEntries();
   const useFallback = entries.length < 2 && !(state.globalBaseline.entries?.length);
+  const isGlobe = getMapProjectionMode() === 'globe';
+  const isDragging = !!state.interaction.dragging;
+  const renderBudget = isDragging ? (isGlobe ? 420 : 520) : (isGlobe ? 760 : 980);
   const color = ui.worldContextColor?.value || cssVar('--ds-text-muted', '#6ecae3');
   const opacity = Number(ui.worldContextOpacity?.value || 0.22);
   const width = Number(ui.worldContextWidth?.value || 0.9);
@@ -1897,7 +1983,7 @@ function drawWorldContextOutline(targetCtx, cam) {
     }
   }
   for (const entry of entries) {
-    const path = Array.isArray(entry?.raw) ? downsampleOutlinePath(entry.raw, 1700) : [];
+    const path = getEntryRenderPath(entry, renderBudget);
     if (path.filter(isValidGeoPoint).length < 2) continue;
     let drawing = false;
     targetCtx.beginPath();
@@ -1907,7 +1993,15 @@ function drawWorldContextOutline(targetCtx, cam) {
         continue;
       }
       const w = geoToCameraWorld(pt.lat, pt.lng, 0);
-      const p = project(w.x, w.y, w.z, cam);
+      const p = isGlobe ? projectWithDepth(w.x, w.y, w.z, cam) : project(w.x, w.y, w.z, cam);
+      if (isGlobe && p.depth > 0) {
+        if (drawing) {
+          targetCtx.stroke();
+          targetCtx.beginPath();
+          drawing = false;
+        }
+        continue;
+      }
       if (!drawing) {
         targetCtx.moveTo(p.x, p.y);
         drawing = true;
@@ -2048,14 +2142,37 @@ function getTopographyBounds() {
     if (p.lng < minLng) minLng = p.lng;
     if (p.lng > maxLng) maxLng = p.lng;
   }
-  const padLat = Math.max((maxLat - minLat) * 0.06, 0.005);
-  const padLng = Math.max((maxLng - minLng) * 0.06, 0.005);
+  // Keep bounds tighter so sampled terrain better matches selected outline area.
+  const padLat = Math.max((maxLat - minLat) * 0.02, 0.001);
+  const padLng = Math.max((maxLng - minLng) * 0.02, 0.001);
   return {
     minLat: minLat - padLat,
     maxLat: maxLat + padLat,
     minLng: minLng - padLng,
     maxLng: maxLng + padLng
   };
+}
+
+function pointInPolygon2D(lat, lng, polygon) {
+  if (!Array.isArray(polygon) || polygon.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const yi = polygon[i].lat;
+    const xi = polygon[i].lng;
+    const yj = polygon[j].lat;
+    const xj = polygon[j].lng;
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lng < ((xj - xi) * (lat - yi)) / ((yj - yi) || 1e-9) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInAnyPolygon(lat, lng, polygons) {
+  for (const poly of polygons || []) {
+    if (pointInPolygon2D(lat, lng, poly)) return true;
+  }
+  return false;
 }
 
 function makeGridAxis(min, max, count, descending = false) {
@@ -2066,6 +2183,60 @@ function makeGridAxis(min, max, count, descending = false) {
     out.push(descending ? max - (max - min) * t : min + (max - min) * t);
   }
   return out;
+}
+
+function normalizeTopographyCacheCountryKey() {
+  return state.currentCountryKey || normalizeCountryKey(ui.countryName?.value || '') || 'unscoped';
+}
+
+function buildTopographyCacheKey(bbox, rows, cols) {
+  const country = normalizeTopographyCacheCountryKey();
+  const fmt = (v) => Number(v).toFixed(3);
+  return [
+    topographyCachePrefix,
+    country,
+    String(rows),
+    String(cols),
+    fmt(bbox.minLat),
+    fmt(bbox.maxLat),
+    fmt(bbox.minLng),
+    fmt(bbox.maxLng)
+  ].join('|');
+}
+
+function isValidTopographyPayload(payload) {
+  if (!payload || !Array.isArray(payload.values)) return false;
+  if (!Number.isFinite(payload.rows) || !Number.isFinite(payload.cols)) return false;
+  if (payload.rows < 2 || payload.cols < 2) return false;
+  if (!Array.isArray(payload.latList) || !Array.isArray(payload.lngList)) return false;
+  return true;
+}
+
+function applyTopographyPayload(payload, options = {}) {
+  const { mode, contourCount, cacheKey = '', cacheState = 'none', sourceOverride = '' } = options;
+  if (!isValidTopographyPayload(payload)) return false;
+  state.topography = {
+    ...state.topography,
+    loaded: true,
+    values: payload.values,
+    rows: Number(payload.rows),
+    cols: Number(payload.cols),
+    latList: payload.latList,
+    lngList: payload.lngList,
+    min: Number(payload.min),
+    max: Number(payload.max),
+    mode: mode || state.topography.mode,
+    contourCount: Number.isFinite(contourCount) ? contourCount : state.topography.contourCount,
+    source: sourceOverride || String(payload.source || state.topography.source),
+    cacheKey: cacheKey || String(payload.cacheKey || ''),
+    cacheState
+  };
+  markStaticDirty();
+  updateRawView();
+  updateDebugView();
+  requestRender();
+  syncActionAvailability();
+  return true;
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 18000) {
@@ -2081,43 +2252,68 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 18000) {
 
 async function fetchElevationBatch(locations, dataset = 'aster30m', retries = 2) {
   const encoded = encodeURIComponent(locations.join('|'));
-  const url = `https://api.opentopodata.org/v1/${dataset}?locations=${encoded}`;
+  const topodataUrl = `https://api.opentopodata.org/v1/${dataset}?locations=${encoded}`;
+  const openElevationUrl = `https://api.open-elevation.com/api/v1/lookup?locations=${encoded}`;
   let lastErr = null;
+
+  // Provider 1: OpenTopoData
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetchWithTimeout(url, {}, 18000);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await fetchWithTimeout(topodataUrl, {}, 18000);
+      if (!res.ok) throw new Error(`OpenTopoData HTTP ${res.status}`);
       const data = await res.json();
-      if (!Array.isArray(data?.results)) throw new Error('Invalid elevation response.');
-      return data.results.map(r => {
-        const v = Number(r.elevation);
-        return Number.isFinite(v) ? v : 0;
-      });
+      if (!Array.isArray(data?.results)) throw new Error('OpenTopoData invalid elevation response.');
+      return {
+        values: data.results.map(r => {
+          const v = Number(r.elevation);
+          return Number.isFinite(v) ? v : 0;
+        }),
+        provider: 'opentopodata'
+      };
     } catch (err) {
       lastErr = err;
-      // Short backoff between retries for transient API/network failures.
       if (attempt < retries) await new Promise(r => setTimeout(r, 350 * (attempt + 1)));
     }
   }
-  throw lastErr || new Error('Elevation batch failed.');
+
+  // Provider 2: Open-Elevation fallback
+  try {
+    const res = await fetchWithTimeout(openElevationUrl, {}, 18000);
+    if (!res.ok) throw new Error(`Open-Elevation HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data?.results)) throw new Error('Open-Elevation invalid elevation response.');
+    return {
+      values: data.results.map(r => {
+        const v = Number(r.elevation);
+        return Number.isFinite(v) ? v : 0;
+      }),
+      provider: 'open-elevation'
+    };
+  } catch (err) {
+    const primary = lastErr?.message ? String(lastErr.message) : 'unknown error';
+    const fallback = err?.message ? String(err.message) : 'unknown error';
+    throw new Error(`Elevation providers failed. OpenTopoData: ${primary}. Open-Elevation: ${fallback}.`);
+  }
 }
 
-async function loadTopographyFromOpenData() {
+async function loadTopographyFromOpenData(options = {}) {
+  const { forceRefresh = false } = options;
   if (!ensureNetworkContext('topography import')) return;
-  setButtonBusy(ui.loadTopography, true, 'Loading...');
+  const busyBtn = forceRefresh ? ui.refreshTopography : ui.loadTopography;
+  setButtonBusy(busyBtn, true, forceRefresh ? 'Refreshing...' : 'Loading...');
   const bbox = getTopographyBounds();
   if (!bbox) {
     setTopoStatus('Load a country outline or pins first.');
     toast('Need country or pins for topography bounds', 'warn');
-    setButtonBusy(ui.loadTopography, false);
+    setButtonBusy(busyBtn, false);
     return;
   }
   const res = Number(ui.topoResolution?.value || 24);
   const contourCount = Number(ui.topoContours?.value || 10);
   const mode = ui.topoMode?.value || 'contour2d';
   // Keep import responsive and avoid browser/network overload.
-  const maxPoints = 1400;
-  const targetRes = clamp(Number.isFinite(res) ? res : 24, 8, 56);
+  const maxPoints = 3600;
+  const targetRes = clamp(Number.isFinite(res) ? res : 24, 8, 84);
   let rows = Math.max(8, Math.round(targetRes));
   let cols = Math.max(8, Math.round(targetRes));
   if (rows * cols > maxPoints) {
@@ -2125,6 +2321,29 @@ async function loadTopographyFromOpenData() {
     rows = Math.max(8, Math.floor(rows * scale));
     cols = Math.max(8, Math.floor(cols * scale));
   }
+  const cacheKey = buildTopographyCacheKey(bbox, rows, cols);
+
+  if (!forceRefresh) {
+    try {
+      const cached = await idbGet(cacheKey);
+      if (isValidTopographyPayload(cached)) {
+        applyTopographyPayload(cached, {
+          mode,
+          contourCount,
+          cacheKey,
+          cacheState: 'hit',
+          sourceOverride: `${cached.source || 'cache'}/cached`
+        });
+        setTopoStatus(`Topography loaded from cache. ${rows}x${cols}, ${Number(cached.min).toFixed(0)}m to ${Number(cached.max).toFixed(0)}m.`);
+        toast('Topography cache hit', 'ok', 1200);
+        setButtonBusy(busyBtn, false);
+        return;
+      }
+    } catch (err) {
+      console.warn('Topography cache read failed:', err);
+    }
+  }
+
   const latList = makeGridAxis(bbox.minLat, bbox.maxLat, rows, true);
   const lngList = makeGridAxis(bbox.minLng, bbox.maxLng, cols, false);
   const queries = [];
@@ -2139,6 +2358,7 @@ async function loadTopographyFromOpenData() {
     const batchSize = 65;
     let valuesFlat = null;
     let sourceDataset = '';
+    let sourceProvider = '';
     let lastErr = null;
 
     for (const dataset of datasets) {
@@ -2147,10 +2367,11 @@ async function loadTopographyFromOpenData() {
         setTopoStatus(`Fetching topography ${rows}x${cols} (${dataset})...`);
         for (let i = 0; i < queries.length; i += batchSize) {
           const batch = queries.slice(i, i + batchSize);
-          const vals = await fetchElevationBatch(batch, dataset, 2);
-          out.push(...vals);
+          const result = await fetchElevationBatch(batch, dataset, 2);
+          out.push(...result.values);
+          sourceProvider = result.provider || sourceProvider;
           const pct = (Math.min(i + batchSize, queries.length) / queries.length) * 100;
-          setTopoStatus(`Topography ${dataset} ${pct.toFixed(0)}%`);
+          setTopoStatus(`Topography ${dataset}/${sourceProvider || 'provider'} ${pct.toFixed(0)}%`);
         }
         valuesFlat = out;
         sourceDataset = dataset;
@@ -2192,20 +2413,44 @@ async function loadTopographyFromOpenData() {
       max,
       mode,
       contourCount,
-      source: `opentopodata/${sourceDataset}`
+      source: `${sourceProvider || 'opentopodata'}/${sourceDataset}`,
+      cacheKey,
+      cacheState: forceRefresh ? 'refresh' : 'miss'
     };
+    try {
+      await idbSet(cacheKey, {
+        rows,
+        cols,
+        latList,
+        lngList,
+        values,
+        min,
+        max,
+        source: `${sourceProvider || 'opentopodata'}/${sourceDataset}`,
+        cacheKey,
+        savedAt: Date.now()
+      });
+    } catch (err) {
+      console.warn('Topography cache write failed:', err);
+    }
     markStaticDirty();
     updateRawView();
+    updateDebugView();
     requestRender();
-    setTopoStatus(`Topography loaded (${sourceDataset}). ${rows}x${cols}, ${min.toFixed(0)}m to ${max.toFixed(0)}m.`);
+    setTopoStatus(`Topography loaded (${sourceProvider || 'opentopodata'}/${sourceDataset}). ${rows}x${cols}, ${min.toFixed(0)}m to ${max.toFixed(0)}m.`);
     toast('Topography loaded', 'ok');
+    syncActionAvailability();
   } catch (err) {
     console.error(err);
-    const msg = err?.message ? `Topography fetch failed: ${err.message}` : 'Topography fetch failed.';
+    const raw = err?.message ? String(err.message) : '';
+    const netHint = /failed to fetch|network|cors|typeerror/i.test(raw)
+      ? ' Check internet connection, run via http://localhost (not file://), and retry Refresh Topography.'
+      : '';
+    const msg = raw ? `Topography fetch failed: ${raw}.${netHint}` : `Topography fetch failed.${netHint}`;
     setTopoStatus(msg);
     toast('Topography fetch failed', 'err');
   } finally {
-    setButtonBusy(ui.loadTopography, false);
+    setButtonBusy(busyBtn, false);
   }
 }
 
@@ -2217,10 +2462,13 @@ function clearTopography() {
     rows: 0,
     cols: 0,
     latList: [],
-    lngList: []
+    lngList: [],
+    cacheKey: '',
+    cacheState: 'cleared'
   };
   markStaticDirty();
   updateRawView();
+  updateDebugView();
   requestRender();
   setTopoStatus('Topography cleared.');
   syncActionAvailability();
@@ -2241,6 +2489,8 @@ function drawTopographyContours(targetCtx, cam) {
   const topoOpacity = Number(ui.topoOpacity?.value || 0.68);
   const topoLineWidth = Number(ui.topoLineWidth?.value || 1.1);
   const topoHeightScale = Number(ui.topoHeightScale?.value || 0.26);
+  const clipPolys = splitOutlineSegments(state.countryOutline).map(seg => seg.filter(isValidGeoPoint)).filter(seg => seg.length >= 3);
+  const clipToOutline = clipPolys.length > 0;
 
   const cellPoint = (r, c, elevFor3d) => {
     const lat = topo.latList[r];
@@ -2252,7 +2502,8 @@ function drawTopographyContours(targetCtx, cam) {
       return { x: w0.x, y: w0.y, z: w0.z };
     }
     const w0 = geoToCameraWorld(lat, lng, 0);
-    const h = mode3d ? norm * topoHeightScale : 0;
+    // Flat mode uses negative Y for "up" (same visual direction as pin stems).
+    const h = mode3d ? -norm * topoHeightScale : 0;
     return { x: w0.x, y: h, z: w0.z };
   };
 
@@ -2296,6 +2547,11 @@ function drawTopographyContours(targetCtx, cam) {
 
   for (let r = 0; r < topo.rows - 1; r++) {
     for (let c = 0; c < topo.cols - 1; c++) {
+      if (clipToOutline) {
+        const centerLat = (topo.latList[r] + topo.latList[r + 1]) * 0.5;
+        const centerLng = (topo.lngList[c] + topo.lngList[c + 1]) * 0.5;
+        if (!pointInAnyPolygon(centerLat, centerLng, clipPolys)) continue;
+      }
       const v0 = topo.values[r][c];
       const v1 = topo.values[r][c + 1];
       const v2 = topo.values[r + 1][c + 1];
@@ -3011,6 +3267,9 @@ function getStaticLayerKey() {
     state.topography.contourCount,
     state.topography.min.toFixed(1),
     state.topography.max.toFixed(1),
+    state.topography.source || '',
+    state.topography.cacheKey || '',
+    state.topography.cacheState || '',
     ui.terrainColor.value,
     ui.wireOpacity.value,
     ui.terrainGlow.value,
@@ -3437,6 +3696,7 @@ ui.visTopography?.addEventListener('click', () => setLayerVisibility('topography
 ui.visSeaLevel?.addEventListener('click', () => setLayerVisibility('seaLevel', !state.layerVisible.seaLevel));
 
 ui.loadTopography?.addEventListener('click', loadTopographyFromOpenData);
+ui.refreshTopography?.addEventListener('click', () => loadTopographyFromOpenData({ forceRefresh: true }));
 ui.clearTopography?.addEventListener('click', clearTopography);
 ui.topoMode?.addEventListener('change', () => {
   state.topography.mode = ui.topoMode.value || 'contour2d';

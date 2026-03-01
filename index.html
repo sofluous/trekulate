@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="app-version" content="0.11.1" />
+    <meta name="app-version" content="0.11.2" />
     <title>TREKULATE - Journey mapping</title>
     <link rel="stylesheet" href="./theme.css" />
     <link
@@ -2359,7 +2359,7 @@
                   <button
                     class="ds-btn ds-btn-icon ds-btn-sm panel-help"
                     type="button"
-                    data-help="MVP: loads elevation samples from OpenTopoData and renders contour wireframe. Use country outline first for best bounds."
+                    data-help="MVP: loads elevation samples from OpenTopoData and renders contour wireframe. Load Topography is cache-first by country+bounds+resolution. Refresh Topography forces a new network fetch and updates cache. Use country outline first for best bounds."
                     title="Help"
                   >
                     <i class="iconoir-info-circle"></i>
@@ -2375,7 +2375,7 @@
                       id="topoResolution"
                       type="range"
                       min="12"
-                      max="42"
+                      max="72"
                       value="24"
                       step="2"
                       title="Topography sample resolution"
@@ -2410,6 +2410,9 @@
                 <div class="btn-row">
                   <button class="ds-btn ds-btn-danger" id="clearTopography">
                     Clear Topography
+                  </button>
+                  <button class="ds-btn" id="refreshTopography">
+                    Refresh Topography
                   </button>
                   <button class="ds-btn ds-btn-primary" id="loadTopography">
                     Load Topography
