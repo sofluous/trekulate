@@ -65,7 +65,6 @@ const ui = {
   cameraLens: document.getElementById('cameraLens'),
   cameraFocusDepth: document.getElementById('cameraFocusDepth'),
   cameraDof: document.getElementById('cameraDof'),
-  resetCamera: document.getElementById('resetCamera'),
   viewHome: document.getElementById('viewHome'),
   viewFit: document.getElementById('viewFit'),
   viewIso: document.getElementById('viewIso'),
@@ -2683,9 +2682,11 @@ function setCamera(yaw, pitch, zoom, options = {}) {
 
 function setCameraPreset(name) {
   const presets = {
-    iso: { yaw: -0.76, pitch: 0.93, roll: 0, zoom: 3.4 },
-    top: { yaw: 0, pitch: 1.55, roll: 0, zoom: 3.6 },
-    bottom: { yaw: 0, pitch: -1.55, roll: 0, zoom: 3.6 },
+    // True isometric-ish angle.
+    iso: { yaw: -Math.PI / 4, pitch: 0.62, roll: 0, zoom: 3.8 },
+    // Exact orthographic-like poles for clear top/bottom reads.
+    top: { yaw: 0, pitch: Math.PI / 2, roll: 0, zoom: 3.6 },
+    bottom: { yaw: 0, pitch: -Math.PI / 2, roll: 0, zoom: 3.6 },
     left: { yaw: -Math.PI / 2, pitch: 0.93, roll: 0, zoom: 3.4 },
     right: { yaw: Math.PI / 2, pitch: 0.93, roll: 0, zoom: 3.4 },
     front: { yaw: 0, pitch: 0.93, roll: 0, zoom: 3.4 },
@@ -2695,6 +2696,19 @@ function setCameraPreset(name) {
   const next = presets[name];
   if (!next) return;
   setCameraState(next);
+}
+
+function homeView() {
+  // Start from a framed zoom, then apply a mild cinematic angle.
+  fitMapToFrame();
+  const pitch = getMapProjectionMode() === 'globe' ? -0.28 : 0.48;
+  setCameraState({
+    yaw: -0.52,
+    pitch,
+    roll: 0,
+    focusX: 0,
+    focusZ: 0
+  });
 }
 
 function collectFrameWorldPoints(limit = 220) {
@@ -2969,8 +2983,7 @@ ui.cameraFocal?.addEventListener('input', () => setCameraState({ focalLength: Nu
 ui.cameraLens?.addEventListener('input', () => setCameraState({ lensAngle: Number(ui.cameraLens.value) }));
 ui.cameraFocusDepth?.addEventListener('input', () => setCameraState({ focusDepth: Number(ui.cameraFocusDepth.value) }));
 ui.cameraDof?.addEventListener('input', () => setCameraState({ dofStrength: Number(ui.cameraDof.value) }));
-ui.resetCamera?.addEventListener('click', () => setCameraPreset('home'));
-ui.viewHome?.addEventListener('click', () => setCameraPreset('home'));
+ui.viewHome?.addEventListener('click', homeView);
 ui.viewFit?.addEventListener('click', fitMapToFrame);
 ui.viewIso?.addEventListener('click', () => setCameraPreset('iso'));
 ui.viewTop?.addEventListener('click', () => setCameraPreset('top'));
