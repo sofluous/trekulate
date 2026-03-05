@@ -124,6 +124,7 @@ const ui = {
   loadCountry: document.getElementById('loadCountry'),
   refreshCountry: document.getElementById('refreshCountry'),
   syncGlobalBaseline: document.getElementById('syncGlobalBaseline'),
+  topoQuality: document.getElementById('topoQuality'),
   topoResolution: document.getElementById('topoResolution'),
   topoContours: document.getElementById('topoContours'),
   topoMode: document.getElementById('topoMode'),
@@ -149,6 +150,11 @@ const globalBaselineDbName = 'trekulate.cache.db';
 const globalBaselineStore = 'kv';
 const globalBaselineKey = 'worldContextBaseline.v2';
 const topographyCachePrefix = 'topography.v1';
+const TOPO_QUALITY_PRESETS = {
+  low: { resolution: 18, contours: 8 },
+  medium: { resolution: 30, contours: 12 },
+  high: { resolution: 48, contours: 18 }
+};
 const CAMERA_DEFAULT = {
   yaw: -0.76,
   pitch: 0.93,
@@ -262,8 +268,9 @@ const state = {
     lngList: [],
     min: 0,
     max: 0,
+    quality: 'medium',
     mode: 'contour2d',
-    contourCount: 10,
+    contourCount: 12,
     source: 'opentopodata/aster30m',
     cacheKey: '',
     cacheState: 'none'
@@ -1028,6 +1035,7 @@ function updateRawView() {
       cols: state.topography.cols,
       min: state.topography.min,
       max: state.topography.max,
+      quality: state.topography.quality,
       mode: state.topography.mode,
       contourCount: state.topography.contourCount,
       source: state.topography.source,
@@ -1098,6 +1106,7 @@ function updateDebugView() {
     `Topography cache state: ${topo.cacheState || 'none'}`,
     `Topography grid: ${topo.rows} x ${topo.cols}`,
     `Topography elevation min/max: ${Number(topo.min).toFixed(2)} / ${Number(topo.max).toFixed(2)}`,
+    `Topography quality: ${topo.quality || 'custom'}`,
     `Topography mode: ${topo.mode}`,
     `Topography contours: ${topo.contourCount}`,
     '',
@@ -2201,6 +2210,42 @@ function makeGridAxis(min, max, count, descending = false) {
   return out;
 }
 
+function resolveTopographyQuality(resolution, contours) {
+  const res = Number(resolution);
+  const cnt = Number(contours);
+  for (const [quality, preset] of Object.entries(TOPO_QUALITY_PRESETS)) {
+    if (Math.round(res) === preset.resolution && Math.round(cnt) === preset.contours) return quality;
+  }
+  return 'custom';
+}
+
+function syncTopographyQualityFromControls() {
+  if (!ui.topoQuality || !ui.topoResolution || !ui.topoContours) return;
+  const quality = resolveTopographyQuality(ui.topoResolution.value, ui.topoContours.value);
+  ui.topoQuality.value = quality;
+  state.topography.quality = quality;
+  updateRawView();
+  updateDebugView();
+}
+
+function applyTopographyQualityPreset(quality) {
+  const key = String(quality || '').toLowerCase();
+  if (!ui.topoResolution || !ui.topoContours) return;
+  const preset = TOPO_QUALITY_PRESETS[key];
+  if (!preset) {
+    syncTopographyQualityFromControls();
+    return;
+  }
+  ui.topoResolution.value = String(preset.resolution);
+  ui.topoContours.value = String(preset.contours);
+  state.topography.contourCount = preset.contours;
+  state.topography.quality = key;
+  markStaticDirty();
+  updateRawView();
+  updateDebugView();
+  requestRender();
+}
+
 function normalizeTopographyCacheCountryKey() {
   return state.currentCountryKey || normalizeCountryKey(ui.countryName?.value || '') || 'unscoped';
 }
@@ -2229,8 +2274,16 @@ function isValidTopographyPayload(payload) {
 }
 
 function applyTopographyPayload(payload, options = {}) {
-  const { mode, contourCount, cacheKey = '', cacheState = 'none', sourceOverride = '' } = options;
+  const {
+    mode,
+    contourCount,
+    quality = '',
+    cacheKey = '',
+    cacheState = 'none',
+    sourceOverride = ''
+  } = options;
   if (!isValidTopographyPayload(payload)) return false;
+  const resolvedQuality = quality || resolveTopographyQuality(payload.rows, contourCount);
   state.topography = {
     ...state.topography,
     loaded: true,
@@ -2241,6 +2294,7 @@ function applyTopographyPayload(payload, options = {}) {
     lngList: payload.lngList,
     min: Number(payload.min),
     max: Number(payload.max),
+    quality: resolvedQuality,
     mode: mode || state.topography.mode,
     contourCount: Number.isFinite(contourCount) ? contourCount : state.topography.contourCount,
     source: sourceOverride || String(payload.source || state.topography.source),
@@ -2248,6 +2302,7 @@ function applyTopographyPayload(payload, options = {}) {
     cacheState
   };
   markStaticDirty();
+  if (ui.topoQuality) ui.topoQuality.value = resolvedQuality;
   updateRawView();
   updateDebugView();
   requestRender();
@@ -2324,8 +2379,16 @@ async function loadTopographyFromOpenData(options = {}) {
     setButtonBusy(busyBtn, false);
     return;
   }
-  const res = Number(ui.topoResolution?.value || 24);
-  const contourCount = Number(ui.topoContours?.value || 10);
+  const quality = ui.topoQuality?.value || 'custom';
+  let res = Number(ui.topoResolution?.value || 24);
+  let contourCount = Number(ui.topoContours?.value || 10);
+  const preset = TOPO_QUALITY_PRESETS[quality];
+  if (preset) {
+    res = preset.resolution;
+    contourCount = preset.contours;
+    if (ui.topoResolution) ui.topoResolution.value = String(res);
+    if (ui.topoContours) ui.topoContours.value = String(contourCount);
+  }
   const mode = ui.topoMode?.value || 'contour2d';
   // Keep import responsive and avoid browser/network overload.
   const maxPoints = 3600;
@@ -2346,11 +2409,12 @@ async function loadTopographyFromOpenData(options = {}) {
         applyTopographyPayload(cached, {
           mode,
           contourCount,
+          quality: preset ? quality : resolveTopographyQuality(rows, contourCount),
           cacheKey,
           cacheState: 'hit',
           sourceOverride: `${cached.source || 'cache'}/cached`
         });
-        setTopoStatus(`Topography loaded from cache. ${rows}x${cols}, ${Number(cached.min).toFixed(0)}m to ${Number(cached.max).toFixed(0)}m.`);
+        setTopoStatus(`Topography loaded from cache (${state.topography.quality}). ${rows}x${cols}, ${Number(cached.min).toFixed(0)}m to ${Number(cached.max).toFixed(0)}m.`);
         toast('Topography cache hit', 'ok', 1200);
         setButtonBusy(busyBtn, false);
         return;
@@ -2427,6 +2491,7 @@ async function loadTopographyFromOpenData(options = {}) {
       lngList,
       min,
       max,
+      quality: preset ? quality : resolveTopographyQuality(rows, contourCount),
       mode,
       contourCount,
       source: `${sourceProvider || 'opentopodata'}/${sourceDataset}`,
@@ -2453,7 +2518,8 @@ async function loadTopographyFromOpenData(options = {}) {
     updateRawView();
     updateDebugView();
     requestRender();
-    setTopoStatus(`Topography loaded (${sourceProvider || 'opentopodata'}/${sourceDataset}). ${rows}x${cols}, ${min.toFixed(0)}m to ${max.toFixed(0)}m.`);
+    if (ui.topoQuality) ui.topoQuality.value = state.topography.quality;
+    setTopoStatus(`Topography loaded (${sourceProvider || 'opentopodata'}/${sourceDataset}, ${state.topography.quality}). ${rows}x${cols}, ${min.toFixed(0)}m to ${max.toFixed(0)}m.`);
     toast('Topography loaded', 'ok');
     syncActionAvailability();
   } catch (err) {
@@ -2532,16 +2598,22 @@ function drawTopographyContours(targetCtx, cam) {
     return { x: w0.x, y: h, z: w0.z };
   };
 
-  const edgePoint = (edge, p0, p1, p2, p3, v0, v1, v2, v3, level) => {
+  const edgePoint = (edge, p0, p1, p2, p3, g0, g1, g2, g3, v0, v1, v2, v3, level) => {
     const lerp = (a, b, t) => a + (b - a) * t;
-    const interp = (pa, pb, va, vb) => {
+    const interp = (pa, pb, ga, gb, va, vb) => {
       const t = Math.abs(vb - va) < 1e-6 ? 0.5 : (level - va) / (vb - va);
-      return { x: lerp(pa.x, pb.x, t), y: lerp(pa.y, pb.y, t), z: lerp(pa.z, pb.z, t) };
+      return {
+        x: lerp(pa.x, pb.x, t),
+        y: lerp(pa.y, pb.y, t),
+        z: lerp(pa.z, pb.z, t),
+        lat: lerp(ga.lat, gb.lat, t),
+        lng: lerp(ga.lng, gb.lng, t)
+      };
     };
-    if (edge === 0) return interp(p0, p1, v0, v1);
-    if (edge === 1) return interp(p1, p2, v1, v2);
-    if (edge === 2) return interp(p2, p3, v2, v3);
-    return interp(p3, p0, v3, v0);
+    if (edge === 0) return interp(p0, p1, g0, g1, v0, v1);
+    if (edge === 1) return interp(p1, p2, g1, g2, v1, v2);
+    if (edge === 2) return interp(p2, p3, g2, g3, v2, v3);
+    return interp(p3, p0, g3, g0, v3, v0);
   };
 
   const cases = {
@@ -2585,6 +2657,10 @@ function drawTopographyContours(targetCtx, cam) {
       const v1 = topo.values[r][c1];
       const v2 = topo.values[r1][c1];
       const v3 = topo.values[r1][c];
+      const g0 = { lat: topo.latList[r], lng: topo.lngList[c] };
+      const g1 = { lat: topo.latList[r], lng: topo.lngList[c1] };
+      const g2 = { lat: topo.latList[r1], lng: topo.lngList[c1] };
+      const g3 = { lat: topo.latList[r1], lng: topo.lngList[c] };
       const p0 = cellPoint(r, c, v0);
       const p1 = cellPoint(r, c1, v1);
       const p2 = cellPoint(r1, c1, v2);
@@ -2600,8 +2676,16 @@ function drawTopographyContours(targetCtx, cam) {
         const segments = cases[idx];
         if (!segments?.length) continue;
         for (const [eA, eB] of segments) {
-          const a = edgePoint(eA, p0, p1, p2, p3, v0, v1, v2, v3, level);
-          const b = edgePoint(eB, p0, p1, p2, p3, v0, v1, v2, v3, level);
+          const a = edgePoint(eA, p0, p1, p2, p3, g0, g1, g2, g3, v0, v1, v2, v3, level);
+          const b = edgePoint(eB, p0, p1, p2, p3, g0, g1, g2, g3, v0, v1, v2, v3, level);
+          if (clipToOutline) {
+            const midLat = (a.lat + b.lat) * 0.5;
+            const midLng = (a.lng + b.lng) * 0.5;
+            const inA = pointInAnyPolygon(a.lat, a.lng, clipPolys);
+            const inB = pointInAnyPolygon(b.lat, b.lng, clipPolys);
+            const inMid = pointInAnyPolygon(midLat, midLng, clipPolys);
+            if (!(inA || inB || inMid)) continue;
+          }
           const pa = project(a.x, a.y, a.z, cam);
           const pb = project(b.x, b.y, b.z, cam);
           targetCtx.beginPath();
@@ -3293,6 +3377,7 @@ function getStaticLayerKey() {
     state.topography.loaded ? 1 : 0,
     state.topography.rows,
     state.topography.cols,
+    state.topography.quality || '',
     state.topography.mode,
     state.topography.contourCount,
     state.topography.min.toFixed(1),
@@ -3728,15 +3813,26 @@ ui.visSeaLevel?.addEventListener('click', () => setLayerVisibility('seaLevel', !
 ui.loadTopography?.addEventListener('click', loadTopographyFromOpenData);
 ui.refreshTopography?.addEventListener('click', () => loadTopographyFromOpenData({ forceRefresh: true }));
 ui.clearTopography?.addEventListener('click', clearTopography);
+ui.topoQuality?.addEventListener('change', () => {
+  applyTopographyQualityPreset(ui.topoQuality.value || 'custom');
+});
 ui.topoMode?.addEventListener('change', () => {
   state.topography.mode = ui.topoMode.value || 'contour2d';
   markStaticDirty();
   updateRawView();
+  updateDebugView();
   requestRender();
 });
+ui.topoResolution?.addEventListener('input', () => {
+  syncTopographyQualityFromControls();
+  syncActionAvailability();
+});
 ui.topoContours?.addEventListener('input', () => {
-  state.topography.contourCount = Number(ui.topoContours.value || 10);
+  state.topography.contourCount = Number(ui.topoContours.value || 12);
+  syncTopographyQualityFromControls();
   markStaticDirty();
+  updateRawView();
+  updateDebugView();
   requestRender();
 });
 
@@ -3910,8 +4006,10 @@ syncCameraToUI();
 syncGeoWindowToUI();
 if (ui.mapProjection) ui.mapProjection.value = state.mapProjection;
 syncProjectionButtons();
+if (ui.topoResolution) ui.topoResolution.value = String(TOPO_QUALITY_PRESETS.medium.resolution);
 if (ui.topoContours) ui.topoContours.value = String(state.topography.contourCount);
 if (ui.topoMode) ui.topoMode.value = state.topography.mode;
+syncTopographyQualityFromControls();
 if (ui.outlineMainlandOnly) ui.outlineMainlandOnly.value = state.outlineFilterMode;
 syncLayerToggleButtons();
 populateOutlineSegmentSelect();

@@ -2379,6 +2379,18 @@
                 </div>
                 <div class="data-stack">
                   <div class="data-row">
+                    <span class="mini-key" title="Quality preset"
+                      ><i class="iconoir-half-cookie" aria-hidden="true"></i
+                    ></span>
+                    <span class="render-label">Quality</span>
+                    <select id="topoQuality" class="ds-select">
+                      <option value="low">Low</option>
+                      <option value="medium" selected>Medium</option>
+                      <option value="high">High</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </div>
+                  <div class="data-row">
                     <span class="mini-key" title="Resolution"
                       ><i class="iconoir-ruler-combine" aria-hidden="true"></i
                     ></span>
@@ -2403,7 +2415,7 @@
                       type="range"
                       min="4"
                       max="24"
-                      value="10"
+                      value="12"
                       step="1"
                       title="Contour levels"
                     />
