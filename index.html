@@ -326,13 +326,75 @@
         text-transform: none;
         color: var(--text);
         font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .group h3 .panel-help {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        min-width: var(--ds-control-h-sm, 28px);
+        min-height: var(--ds-control-h-sm, 28px);
+        padding: 0;
+        border-radius: var(--ds-radius-pill, 999px);
+        opacity: 0;
+        transform: translateY(-1px);
+        pointer-events: none;
+      }
+
+      .group h3:hover .panel-help,
+      .group h3:focus-within .panel-help,
+      .group h3 .panel-help:focus-visible {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+
+      .group h3 .panel-help:hover,
+      .group h3 .panel-help:focus-visible {
+        background: color-mix(in oklab, var(--panel) 78%, transparent);
       }
 
       .group-head {
         display: grid;
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: 1fr auto;
         align-items: center;
         gap: 6px;
+      }
+
+      .group-icon-btn {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--ds-text-muted);
+        min-width: var(--ds-control-h-sm, 28px);
+        min-height: var(--ds-control-h-sm, 28px);
+        padding: 0;
+        border-radius: var(--ds-radius-pill, 999px);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition:
+          color var(--ds-dur-fast, 140ms) var(--ds-ease-standard, ease),
+          background var(--ds-dur-fast, 140ms) var(--ds-ease-standard, ease);
+      }
+
+      .group-icon-btn:hover,
+      .group-icon-btn:focus-visible {
+        color: var(--text);
+        background: color-mix(in oklab, var(--panel) 78%, transparent);
+      }
+
+      .group-toggle .group-chevron {
+        transition: transform var(--ds-dur-fast, 140ms)
+          var(--ds-ease-standard, ease);
+      }
+
+      .group.is-collapsed .group-toggle .group-chevron {
+        transform: rotate(-90deg);
       }
 
       .panel-help i,
@@ -774,11 +836,27 @@
         min-height: 22px;
         padding: 0;
         font-size: 0;
+        border: 0;
+        background: transparent;
+        opacity: 0;
+        transform: translateY(-1px);
+        pointer-events: none;
+        transition:
+          opacity var(--ds-dur-fast, 140ms) var(--ds-ease-standard, ease),
+          transform var(--ds-dur-fast, 140ms) var(--ds-ease-standard, ease);
       }
 
       .layer-vis i {
         font-size: 13px;
         color: var(--ds-text-muted);
+      }
+
+      .render-group:hover .layer-vis,
+      .render-group:focus-within .layer-vis,
+      .layer-vis.is-on {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
       }
 
       .layer-vis.is-on i {
@@ -1511,10 +1589,7 @@
                     </div>
                     <div class="render-row">
                       <span class="mini-key" title="Opacity"
-                        ><i
-                          class="iconoir-substract"
-                          aria-hidden="true"
-                        ></i
+                        ><i class="iconoir-substract" aria-hidden="true"></i
                       ></span>
                       <span class="render-label">Opacity</span>
                       <input
@@ -1570,10 +1645,7 @@
                     </div>
                     <div class="render-row">
                       <span class="mini-key" title="Opacity"
-                        ><i
-                          class="iconoir-substract"
-                          aria-hidden="true"
-                        ></i
+                        ><i class="iconoir-substract" aria-hidden="true"></i
                       ></span>
                       <span class="render-label">Opacity</span>
                       <input
@@ -1686,10 +1758,7 @@
                     </div>
                     <div class="render-row">
                       <span class="mini-key" title="Opacity"
-                        ><i
-                          class="iconoir-substract"
-                          aria-hidden="true"
-                        ></i
+                        ><i class="iconoir-substract" aria-hidden="true"></i
                       ></span>
                       <span class="render-label">Opacity</span>
                       <input
@@ -1811,10 +1880,7 @@
                     </div>
                     <div class="render-row">
                       <span class="mini-key" title="Opacity"
-                        ><i
-                          class="iconoir-substract"
-                          aria-hidden="true"
-                        ></i
+                        ><i class="iconoir-substract" aria-hidden="true"></i
                       ></span>
                       <span class="render-label">Opacity</span>
                       <input
@@ -1882,7 +1948,7 @@
                         title="Sea level pattern"
                       >
                         <option value="dots" selected>Dots</option>
-                        <option value="grid" >Grid</option>
+                        <option value="grid">Grid</option>
                         <option value="hatch">Hatch</option>
                       </select>
                     </div>
@@ -1900,10 +1966,7 @@
                     </div>
                     <div class="render-row">
                       <span class="mini-key" title="Opacity"
-                        ><i
-                          class="iconoir-substract"
-                          aria-hidden="true"
-                        ></i
+                        ><i class="iconoir-substract" aria-hidden="true"></i
                       ></span>
                       <span class="render-label">Opacity</span>
                       <input
@@ -2240,10 +2303,18 @@
                   <button class="ds-btn ds-btn-primary" id="loadCountry">
                     Outline
                   </button>
-                  <button class="ds-btn" id="refreshCountry" title="Force re-fetch and update local outline cache">
+                  <button
+                    class="ds-btn"
+                    id="refreshCountry"
+                    title="Force re-fetch and update local outline cache"
+                  >
                     Refresh
                   </button>
-                  <button class="ds-btn" id="syncGlobalBaseline" title="Download and store high-fidelity global context once">
+                  <button
+                    class="ds-btn"
+                    id="syncGlobalBaseline"
+                    title="Download and store high-fidelity global context once"
+                  >
                     Sync Global
                   </button>
                 </div>

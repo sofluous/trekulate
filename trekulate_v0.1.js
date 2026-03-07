@@ -980,6 +980,18 @@ function setLayerVisibility(layerKey, on) {
 }
 
 function setupCollapsibleGroups() {
+  const collapseKeyForGroup = (group) => {
+    const panel = group.closest('[data-tab-panel]')?.getAttribute('data-tab-panel') || 'panel';
+    const title = group.querySelector(':scope > .group-head > h3')?.textContent?.trim() || 'group';
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return `trekulate.groupCollapsed.${panel}.${slug || 'group'}`;
+  };
+  const setCollapsed = (group, toggle, collapsed) => {
+    group.classList.toggle('is-collapsed', !!collapsed);
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    toggle.title = collapsed ? 'Expand section' : 'Collapse section';
+  };
+
   const groups = Array.from(document.querySelectorAll('.group'));
   for (const group of groups) {
     let head = group.querySelector(':scope > .group-head');
@@ -994,14 +1006,16 @@ function setupCollapsibleGroups() {
     if (head.querySelector('.group-toggle')) continue;
     const toggle = document.createElement('button');
     toggle.type = 'button';
-    toggle.className = 'ds-btn ds-btn-icon ds-btn-sm group-toggle';
-    toggle.title = 'Collapse/expand section';
-    toggle.innerHTML = '<i class="iconoir-nav-arrow-down" aria-hidden="true"></i>';
+    toggle.className = 'group-icon-btn group-toggle';
+    toggle.setAttribute('aria-label', 'Collapse or expand section');
+    toggle.innerHTML = '<i class="iconoir-nav-arrow-down group-chevron" aria-hidden="true"></i>';
+    const storageKey = collapseKeyForGroup(group);
+    const stored = localStorage.getItem(storageKey);
+    setCollapsed(group, toggle, stored === '1');
     toggle.addEventListener('click', () => {
-      const collapsed = group.classList.toggle('is-collapsed');
-      toggle.innerHTML = collapsed
-        ? '<i class="iconoir-nav-arrow-right" aria-hidden="true"></i>'
-        : '<i class="iconoir-nav-arrow-down" aria-hidden="true"></i>';
+      const collapsed = !group.classList.contains('is-collapsed');
+      setCollapsed(group, toggle, collapsed);
+      localStorage.setItem(storageKey, collapsed ? '1' : '0');
     });
     head.appendChild(toggle);
   }
@@ -3857,6 +3871,17 @@ if (ui.cancelDeleteBtn) {
 [ui.pinLabel, ui.pinTimestamp, ui.pinNote].forEach(el => {
   el.addEventListener('input', handleMetadataChange);
 });
+
+function anchorPanelHelpToGroupTitle() {
+  document.querySelectorAll('.group .group-head').forEach((head) => {
+    const title = head.querySelector('h3');
+    const helpBtn = head.querySelector('.panel-help');
+    if (!title || !helpBtn || title.contains(helpBtn)) return;
+    title.appendChild(helpBtn);
+  });
+}
+
+anchorPanelHelpToGroupTitle();
 
 ui.panelHelpButtons.forEach(btn => {
   btn.addEventListener('click', () => {
