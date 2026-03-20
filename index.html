@@ -2442,7 +2442,7 @@
                   <button
                     class="ds-btn ds-btn-icon ds-btn-sm panel-help"
                     type="button"
-                    data-help="MVP: loads elevation samples from OpenTopoData and renders contour wireframe. Load Topography is cache-first by country+bounds+resolution. Refresh Topography forces a new network fetch and updates cache. Use country outline first for best bounds."
+                    data-help="MVP: loads elevation samples from OpenTopoData and renders either contour lines or a 3D wireframe terrain mesh. Load Topography is cache-first by country+bounds+resolution. Refresh Topography forces a new network fetch and updates cache. Use country outline first for best bounds."
                     title="Help"
                   >
                     <i class="iconoir-info-circle"></i>
@@ -2499,6 +2499,7 @@
                     <select id="topoMode" class="ds-select">
                       <option value="contour2d" selected>2D Contours</option>
                       <option value="contour3d">3D Contours</option>
+                      <option value="wireframe3d">3D Wireframe</option>
                     </select>
                   </div>
                 </div>
@@ -2603,22 +2604,10 @@
                   id="themeSelectApp"
                   class="theme-switch ds-select"
                   aria-label="Select app theme"
-                >
-                  <option value="steel-night">Steel Night</option>
-                  <option value="paper-mint">Paper Mint</option>
-                  <option value="amber-terminal">Amber Terminal</option>
-                  <option value="neon-grid">Neon Grid</option>
-                  <option value="mono-slate">Mono Slate</option>
-                  <option value="tech-grid">Tech Grid</option>
-                  <option value="skeuo-panel">Skeuo Panel</option>
-                  <option value="industrial-terminal">
-                    Industrial Terminal
-                  </option>
-                  <option value="velvet-touch">Velvet Touch</option>
-                  <option value="eva-wireframe">Eva Wireframe</option>
-                  <option value="eva-unit-01">Eva Unit-01</option>
-                  <option value="saturn-alloy">Saturn Alloy</option>
-                </select>
+                  data-ds-theme-select
+                  data-ds-theme-storage="trekulate.theme"
+                  data-ds-theme-default="mono-slate"
+                ></select>
               </div>
             </section>
           </div>
@@ -2805,6 +2794,8 @@
       aria-hidden="true"
       tabindex="-1"
     />
-    <script src="./trekulate_v0.1.js"></script>
+    <script src="./js/theme-registry.js"></script>
+    <script src="./js/theme-selector.js"></script>
+    <script src="./trekulate.js"></script>
   </body>
 </html>

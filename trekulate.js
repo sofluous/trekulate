@@ -253,7 +253,7 @@ const state = {
   dims: { w: 0, h: 0, ratio: 1 },
   bounds: { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1 },
   camera: { ...CAMERA_DEFAULT },
-  interaction: { dragging: false, moved: false, x: 0, y: 0, mode: '', button: -1 },
+  interaction: { dragging: false, moved: false, x: 0, y: 0, mode: '', button: -1, lodUntil: 0 },
   renderQueued: false,
   staticDirty: true,
   staticLayer: { canvas: document.createElement('canvas'), ctx: null, key: '' },
@@ -273,7 +273,18 @@ const state = {
     contourCount: 12,
     source: 'opentopodata/aster30m',
     cacheKey: '',
-    cacheState: 'none'
+    cacheState: 'none',
+    contourGeometry: {
+      key: '',
+      segmentCount: 0,
+      levels: [],
+      segments: []
+    },
+    wireGeometry: {
+      key: '',
+      segmentCount: 0,
+      segments: []
+    }
   },
   selectedPinId: null,
   routeDirty: false,
@@ -291,6 +302,14 @@ const state = {
 };
 state.staticLayer.ctx = state.staticLayer.canvas.getContext('2d');
 let wheelSyncTimer = null;
+
+function noteInteractionActivity(durationMs = 160) {
+  state.interaction.lodUntil = Math.max(state.interaction.lodUntil || 0, performance.now() + durationMs);
+}
+
+function isInteractionLodActive(now = performance.now()) {
+  return !!state.interaction.dragging || now < (state.interaction.lodUntil || 0);
+}
 
 function cssVar(name, fallback = '') {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -658,9 +677,19 @@ function applyLoadedCountryOutline(countryName, rawPath, sourceLabel = 'cache') 
 }
 
 function applyTheme(name) {
-  document.documentElement.setAttribute('data-theme', name);
-  localStorage.setItem(themeStorageKey, name);
-  ui.themeSelectApp.value = name;
+  const nextTheme = window.DesignSystemThemeSelector
+    ? window.DesignSystemThemeSelector.applyTheme(name, {
+        root: document.documentElement,
+        storageKey: themeStorageKey
+      })
+    : name;
+  document.documentElement.setAttribute('data-theme', nextTheme);
+  try {
+    localStorage.setItem(themeStorageKey, nextTheme);
+  } catch (err) {
+    // Ignore storage failures in restricted contexts.
+  }
+  if (ui.themeSelectApp) ui.themeSelectApp.value = nextTheme;
   initRenderControlDefaultsFromTheme();
   markStaticDirty();
   requestRender();
@@ -816,6 +845,7 @@ function centerOnSelectedOutlineSegment() {
 function applyCountryOutlineFilter() {
   const segments = splitOutlineSegments(state.countryOutlineRaw);
   state.outlineSegmentsMeta = [];
+  resetTopographyContourGeometry();
   if (!segments.length) {
     state.countryOutline = [];
     populateOutlineSegmentSelect();
@@ -925,14 +955,26 @@ function syncActionAvailability() {
   const hasOutlineSegments = state.outlineSegmentsMeta.length > 0;
   const hasTopo = !!state.topography.loaded;
   const hasBoundsSource = hasPins || hasPath || hasOutline;
+  const hasPlayback = hasPath || hasPins;
+  const hasTimelineRange = state.timelineAnchors.length > 1 || hasPath;
+
+  if (!hasPlayback && state.playing) {
+    state.playing = false;
+    updatePlayPauseLabel();
+  }
 
   if (ui.parsePreview) ui.parsePreview.disabled = !hasInput;
   if (ui.loadPins) ui.loadPins.disabled = !hasInput;
   if (ui.clearInput) ui.clearInput.disabled = !hasInput;
   if (ui.sampleRoute && !ui.sampleRoute.classList.contains('is-busy')) ui.sampleRoute.disabled = state.pins.length < 2;
   if (ui.clearRoute) ui.clearRoute.disabled = !hasRouteOrMap;
+  if (ui.playPause) ui.playPause.disabled = !hasPlayback;
+  if (ui.reset) ui.reset.disabled = !hasPlayback;
+  if (ui.timeline) ui.timeline.disabled = !hasTimelineRange;
+  if (ui.timelineModeBtn) ui.timelineModeBtn.disabled = state.pins.length < 2;
   if (ui.loadCountry && !ui.loadCountry.classList.contains('is-busy')) ui.loadCountry.disabled = !hasCountryName;
   if (ui.refreshCountry && !ui.refreshCountry.classList.contains('is-busy')) ui.refreshCountry.disabled = !hasCountryName;
+  if (ui.outlineMainlandOnly) ui.outlineMainlandOnly.disabled = !hasOutlineRaw;
   if (ui.outlineSegmentSelect) ui.outlineSegmentSelect.disabled = !hasOutlineSegments;
   if (ui.centerOutlineSegment) ui.centerOutlineSegment.disabled = !hasOutlineSegments;
   if (ui.fitGeoWindow) ui.fitGeoWindow.disabled = !hasBoundsSource;
@@ -1054,7 +1096,11 @@ function updateRawView() {
       contourCount: state.topography.contourCount,
       source: state.topography.source,
       cacheKey: state.topography.cacheKey,
-      cacheState: state.topography.cacheState
+      cacheState: state.topography.cacheState,
+      contourGeometryKey: state.topography.contourGeometry?.key || '',
+      contourSegmentCount: state.topography.contourGeometry?.segmentCount || 0,
+      wireGeometryKey: state.topography.wireGeometry?.key || '',
+      wireSegmentCount: state.topography.wireGeometry?.segmentCount || 0
     },
     routeDirty: state.routeDirty,
     timelineMode: state.timelineMode,
@@ -1123,6 +1169,10 @@ function updateDebugView() {
     `Topography quality: ${topo.quality || 'custom'}`,
     `Topography mode: ${topo.mode}`,
     `Topography contours: ${topo.contourCount}`,
+    `Topography contour cache key: ${topo.contourGeometry?.key || 'none'}`,
+    `Topography contour segments: ${topo.contourGeometry?.segmentCount || 0}`,
+    `Topography wire cache key: ${topo.wireGeometry?.key || 'none'}`,
+    `Topography wire segments: ${topo.wireGeometry?.segmentCount || 0}`,
     '',
     `Pins: ${state.pins.length}`,
     `Path nodes: ${state.path.length}`,
@@ -1136,6 +1186,7 @@ function updateDebugView() {
     `Static dirty: ${state.staticDirty ? 'yes' : 'no'}`,
     `Playing: ${state.playing ? 'yes' : 'no'}`,
     `Render queued: ${state.renderQueued ? 'yes' : 'no'}`,
+    `Interaction LOD: ${isInteractionLodActive() ? 'yes' : 'no'}`,
     `FPS sample: ${state.perf.fps.toFixed(1)}`
   ];
   ui.debugView.value = lines.join('\n');
@@ -1748,6 +1799,32 @@ function projectWithDepth(x, y, z, cam) {
   return { x: cx + rx, y: cy + ry, z: z2, depth: zCam };
 }
 
+function isProjectedPointRenderable(p, margin = 24) {
+  if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) return false;
+  if (p.z <= 0.2) return false;
+  return (
+    p.x >= -margin &&
+    p.x <= state.dims.w + margin &&
+    p.y >= -margin &&
+    p.y <= state.dims.h + margin
+  );
+}
+
+function isProjectedSegmentRenderable(a, b, margin = 24) {
+  if (!a || !b) return false;
+  if ((a.z <= 0.2 && b.z <= 0.2) || (!Number.isFinite(a.x) || !Number.isFinite(b.x))) return false;
+  const minX = Math.min(a.x, b.x);
+  const maxX = Math.max(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxY = Math.max(a.y, b.y);
+  return !(
+    maxX < -margin ||
+    minX > state.dims.w + margin ||
+    maxY < -margin ||
+    minY > state.dims.h + margin
+  );
+}
+
 function getDepthOfFieldForZ(z) {
   const strength = state.camera.dofStrength || 0;
   if (strength <= 0) return { alpha: 1, blur: 0 };
@@ -1793,10 +1870,11 @@ function hexToRgba(hex, a) {
 
 function drawTerrain(targetCtx, cam) {
   if (!state.layerVisible.seaLevel) return;
+  const interactionLod = isInteractionLodActive();
   const pattern = ui.terrainPattern?.value || 'grid';
   const color = ui.terrainColor?.value || '#3cd7ff';
   const opacity = Number(ui.wireOpacity?.value || 0.3);
-  const glow = Number(ui.terrainGlow?.value || 0) * 6;
+  const glow = interactionLod ? 0 : Number(ui.terrainGlow?.value || 0) * 6;
   const density = Math.max(0.5, Number(ui.terrainDensity?.value || 6));
   const y = Number(ui.terrainHeight?.value || 0);
   const half = Math.max(state.geoWindow.spanDeg * 0.5, 1e-6);
@@ -1806,7 +1884,7 @@ function drawTerrain(targetCtx, cam) {
     minLng: state.geoWindow.centerLng - half,
     maxLng: state.geoWindow.centerLng + half
   };
-  const step = clamp(state.geoWindow.spanDeg / (density * 4), 0.05, 45);
+  const step = clamp(state.geoWindow.spanDeg / (density * (interactionLod ? 2.6 : 4)), 0.05, 45);
   const latStart = Math.ceil(b.minLat / step) * step;
   const lngStart = Math.ceil(b.minLng / step) * step;
 
@@ -1955,6 +2033,7 @@ function drawTerrain(targetCtx, cam) {
 function drawCountryOutline(targetCtx, cam) {
   if (!state.layerVisible.outline) return;
   if (!state.countryOutline.length) return;
+  const interactionLod = isInteractionLodActive();
   const outlineColor = ui.outlineColor?.value || cssVar('--tk-country-outline', '#8dffcf');
   const outlineOpacity = Number(ui.outlineOpacity?.value || 0.32);
   const outlineWidth = Number(ui.outlineWidth?.value || 1.2);
@@ -1962,24 +2041,23 @@ function drawCountryOutline(targetCtx, cam) {
   targetCtx.strokeStyle = hexToRgba(outlineColor, outlineOpacity);
   targetCtx.lineWidth = outlineWidth;
   targetCtx.shadowColor = outlineColor;
-  targetCtx.shadowBlur = 8;
-  let drawing = false;
-  targetCtx.beginPath();
-  state.countryOutline.forEach((pt) => {
+  targetCtx.shadowBlur = interactionLod ? 2 : 8;
+  let previous = null;
+  for (const pt of state.countryOutline) {
     if (!isValidGeoPoint(pt)) {
-      drawing = false;
-      return;
+      previous = null;
+      continue;
     }
     const w = geoToCameraWorld(pt.lat, pt.lng, 0);
     const p = project(w.x, w.y, w.z, cam);
-    if (!drawing) {
-      targetCtx.moveTo(p.x, p.y);
-      drawing = true;
-    } else {
+    if (previous && isProjectedSegmentRenderable(previous, p, 28)) {
+      targetCtx.beginPath();
+      targetCtx.moveTo(previous.x, previous.y);
       targetCtx.lineTo(p.x, p.y);
+      targetCtx.stroke();
     }
-  });
-  targetCtx.stroke();
+    previous = p;
+  }
   targetCtx.restore();
 }
 
@@ -1988,8 +2066,8 @@ function drawWorldContextOutline(targetCtx, cam) {
   const entries = getContextOutlineEntries();
   const useFallback = entries.length < 2 && !(state.globalBaseline.entries?.length);
   const isGlobe = getMapProjectionMode() === 'globe';
-  const isDragging = !!state.interaction.dragging;
-  const renderBudget = isDragging ? (isGlobe ? 420 : 520) : (isGlobe ? 760 : 980);
+  const interactionLod = isInteractionLodActive();
+  const renderBudget = interactionLod ? (isGlobe ? 320 : 420) : (isGlobe ? 760 : 980);
   const color = ui.worldContextColor?.value || cssVar('--ds-text-muted', '#6ecae3');
   const opacity = Number(ui.worldContextOpacity?.value || 0.22);
   const width = Number(ui.worldContextWidth?.value || 0.9);
@@ -1997,58 +2075,52 @@ function drawWorldContextOutline(targetCtx, cam) {
   targetCtx.strokeStyle = hexToRgba(color, opacity);
   targetCtx.lineWidth = width;
   targetCtx.shadowColor = color;
-  targetCtx.shadowBlur = 2;
+  targetCtx.shadowBlur = interactionLod ? 0 : 2;
   if (useFallback) {
     targetCtx.strokeStyle = hexToRgba(color, opacity * 0.7);
     for (const segment of WORLD_CONTEXT_FALLBACK) {
       if (!Array.isArray(segment) || segment.length < 2) continue;
-      let drawing = false;
-      targetCtx.beginPath();
+      let previous = null;
       for (const pt of segment) {
         if (!isValidGeoPoint(pt)) {
-          drawing = false;
+          previous = null;
           continue;
         }
         const w = geoToCameraWorld(pt.lat, pt.lng, 0);
         const p = project(w.x, w.y, w.z, cam);
-        if (!drawing) {
-          targetCtx.moveTo(p.x, p.y);
-          drawing = true;
-        } else {
+        if (previous && isProjectedSegmentRenderable(previous, p, 28)) {
+          targetCtx.beginPath();
+          targetCtx.moveTo(previous.x, previous.y);
           targetCtx.lineTo(p.x, p.y);
+          targetCtx.stroke();
         }
+        previous = p;
       }
-      if (drawing) targetCtx.stroke();
     }
   }
   for (const entry of entries) {
     const path = getEntryRenderPath(entry, renderBudget);
     if (path.filter(isValidGeoPoint).length < 2) continue;
-    let drawing = false;
-    targetCtx.beginPath();
+    let previous = null;
     for (const pt of path) {
       if (!isValidGeoPoint(pt)) {
-        drawing = false;
+        previous = null;
         continue;
       }
       const w = geoToCameraWorld(pt.lat, pt.lng, 0);
       const p = isGlobe ? projectWithDepth(w.x, w.y, w.z, cam) : project(w.x, w.y, w.z, cam);
       if (isGlobe && p.depth > 0) {
-        if (drawing) {
-          targetCtx.stroke();
-          targetCtx.beginPath();
-          drawing = false;
-        }
+        previous = null;
         continue;
       }
-      if (!drawing) {
-        targetCtx.moveTo(p.x, p.y);
-        drawing = true;
-      } else {
+      if (previous && isProjectedSegmentRenderable(previous, p, 28)) {
+        targetCtx.beginPath();
+        targetCtx.moveTo(previous.x, previous.y);
         targetCtx.lineTo(p.x, p.y);
+        targetCtx.stroke();
       }
+      previous = p;
     }
-    if (drawing) targetCtx.stroke();
   }
   targetCtx.restore();
 }
@@ -2063,6 +2135,7 @@ function niceStep(span, targetLines = 6) {
 
 function drawGeoGrid(targetCtx, cam) {
   if (!state.layerVisible.geoGrid || !state.showGeoGrid) return;
+  const interactionLod = isInteractionLodActive();
   const latStep = clamp(Number(ui.geoLatStep?.value || niceStep(state.geoWindow.spanDeg, 6)), 0.05, 60);
   const lngStep = clamp(Number(ui.geoLngStep?.value || niceStep(state.geoWindow.spanDeg, 6)), 0.05, 60);
   const latDigits = latStep < 1 ? 2 : 0;
@@ -2070,7 +2143,7 @@ function drawGeoGrid(targetCtx, cam) {
   const color = ui.geoGridColor?.value || '#7dcbff';
   const opacity = Number(ui.geoGridOpacity?.value || 0.22);
   const width = Number(ui.geoGridWidth?.value || 1);
-  const labelOpacity = Number(ui.geoLabelOpacity?.value || 0.68);
+  const labelOpacity = interactionLod ? 0 : Number(ui.geoLabelOpacity?.value || 0.68);
 
   targetCtx.save();
   targetCtx.lineWidth = width;
@@ -2150,7 +2223,7 @@ function drawGeoGrid(targetCtx, cam) {
     targetCtx.moveTo(p0.x, p0.y);
     targetCtx.lineTo(p1.x, p1.y);
     targetCtx.stroke();
-    targetCtx.fillText(`${lng.toFixed(lngDigits)}`, p0.x + 3, p0.y - 2);
+    if (!interactionLod) targetCtx.fillText(`${lng.toFixed(lngDigits)}`, p0.x + 3, p0.y - 2);
   }
 
   const latStart = Math.ceil(b.minLat / latStep) * latStep;
@@ -2163,7 +2236,7 @@ function drawGeoGrid(targetCtx, cam) {
     targetCtx.moveTo(p0.x, p0.y);
     targetCtx.lineTo(p1.x, p1.y);
     targetCtx.stroke();
-    targetCtx.fillText(`${lat.toFixed(latDigits)}`, p1.x + 3, p1.y - 2);
+    if (!interactionLod) targetCtx.fillText(`${lat.toFixed(latDigits)}`, p1.x + 3, p1.y - 2);
   }
   targetCtx.restore();
 }
@@ -2214,6 +2287,187 @@ function pointInAnyPolygon(lat, lng, polygons) {
   return false;
 }
 
+function buildTopographyContourGeometry() {
+  const topo = state.topography;
+  if (!topo.loaded || topo.rows < 2 || topo.cols < 2) {
+    resetTopographyContourGeometry();
+    return state.topography.contourGeometry;
+  }
+
+  const min = topo.min;
+  const max = topo.max;
+  const span = Math.max(max - min, 1e-6);
+  const contourCount = Math.max(2, topo.contourCount | 0);
+  const levels = [];
+  for (let i = 1; i <= contourCount; i++) {
+    levels.push(min + (span * i) / (contourCount + 1));
+  }
+
+  const clipPolys = getOutlineClipPolygons();
+  const clipToOutline = clipPolys.length > 0;
+  const clipSignature = getTopographyClipSignature(clipPolys);
+  const geometryKey = [
+    topo.cacheKey || 'uncached',
+    topo.rows,
+    topo.cols,
+    contourCount,
+    clipSignature
+  ].join('|');
+
+  if (topo.contourGeometry?.key === geometryKey) return topo.contourGeometry;
+
+  const cases = {
+    0: [],
+    1: [[3, 0]],
+    2: [[0, 1]],
+    3: [[3, 1]],
+    4: [[1, 2]],
+    5: [[3, 2], [0, 1]],
+    6: [[0, 2]],
+    7: [[3, 2]],
+    8: [[2, 3]],
+    9: [[0, 2]],
+    10: [[0, 3], [1, 2]],
+    11: [[1, 2]],
+    12: [[1, 3]],
+    13: [[0, 1]],
+    14: [[0, 3]],
+    15: []
+  };
+
+  const edgePoint = (edge, g0, g1, g2, g3, v0, v1, v2, v3, level, levelNorm) => {
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const interp = (ga, gb, va, vb) => {
+      const t = Math.abs(vb - va) < 1e-6 ? 0.5 : (level - va) / (vb - va);
+      return {
+        lat: lerp(ga.lat, gb.lat, t),
+        lng: lerp(ga.lng, gb.lng, t),
+        levelNorm
+      };
+    };
+    if (edge === 0) return interp(g0, g1, v0, v1);
+    if (edge === 1) return interp(g1, g2, v1, v2);
+    if (edge === 2) return interp(g2, g3, v2, v3);
+    return interp(g3, g0, v3, v0);
+  };
+
+  const segments = [];
+  for (let r = 0; r < topo.rows - 1; r++) {
+    for (let c = 0; c < topo.cols - 1; c++) {
+      if (clipToOutline) {
+        const centerLat = (topo.latList[r] + topo.latList[r + 1]) * 0.5;
+        const centerLng = (topo.lngList[c] + topo.lngList[c + 1]) * 0.5;
+        if (!pointInAnyPolygon(centerLat, centerLng, clipPolys)) continue;
+      }
+      const v0 = topo.values[r][c];
+      const v1 = topo.values[r][c + 1];
+      const v2 = topo.values[r + 1][c + 1];
+      const v3 = topo.values[r + 1][c];
+      const g0 = { lat: topo.latList[r], lng: topo.lngList[c] };
+      const g1 = { lat: topo.latList[r], lng: topo.lngList[c + 1] };
+      const g2 = { lat: topo.latList[r + 1], lng: topo.lngList[c + 1] };
+      const g3 = { lat: topo.latList[r + 1], lng: topo.lngList[c] };
+
+      for (let li = 0; li < levels.length; li++) {
+        const level = levels[li];
+        const levelNorm = (level - min) / span;
+        const idx =
+          (v0 >= level ? 1 : 0) |
+          (v1 >= level ? 2 : 0) |
+          (v2 >= level ? 4 : 0) |
+          (v3 >= level ? 8 : 0);
+        const contourSegments = cases[idx];
+        if (!contourSegments?.length) continue;
+        for (const [eA, eB] of contourSegments) {
+          const a = edgePoint(eA, g0, g1, g2, g3, v0, v1, v2, v3, level, levelNorm);
+          const b = edgePoint(eB, g0, g1, g2, g3, v0, v1, v2, v3, level, levelNorm);
+          if (clipToOutline) {
+            const midLat = (a.lat + b.lat) * 0.5;
+            const midLng = (a.lng + b.lng) * 0.5;
+            const inA = pointInAnyPolygon(a.lat, a.lng, clipPolys);
+            const inB = pointInAnyPolygon(b.lat, b.lng, clipPolys);
+            const inMid = pointInAnyPolygon(midLat, midLng, clipPolys);
+            if (!(inA || inB || inMid)) continue;
+          }
+          segments.push({
+            levelIndex: li,
+            a,
+            b
+          });
+        }
+      }
+    }
+  }
+
+  state.topography.contourGeometry = {
+    key: geometryKey,
+    segmentCount: segments.length,
+    levels,
+    segments
+  };
+  return state.topography.contourGeometry;
+}
+
+function buildTopographyWireframeGeometry() {
+  const topo = state.topography;
+  if (!topo.loaded || topo.rows < 2 || topo.cols < 2) {
+    resetTopographyWireGeometry();
+    return state.topography.wireGeometry;
+  }
+
+  const clipPolys = getOutlineClipPolygons();
+  const clipToOutline = clipPolys.length > 0;
+  const clipSignature = getTopographyClipSignature(clipPolys);
+  const geometryKey = [
+    topo.cacheKey || 'uncached',
+    topo.rows,
+    topo.cols,
+    clipSignature
+  ].join('|');
+
+  if (topo.wireGeometry?.key === geometryKey) return topo.wireGeometry;
+
+  const span = Math.max(topo.max - topo.min, 1e-6);
+  const pointCache = Array.from({ length: topo.rows }, (_, r) => (
+    Array.from({ length: topo.cols }, (_, c) => ({
+      lat: topo.latList[r],
+      lng: topo.lngList[c],
+      levelNorm: (Number(topo.values[r]?.[c]) - topo.min) / span
+    }))
+  ));
+
+  const isInside = (point) => !clipToOutline || pointInAnyPolygon(point.lat, point.lng, clipPolys);
+  const segments = [];
+
+  const pushSegmentIfVisible = (a, b) => {
+    if (!a || !b) return;
+    if (clipToOutline) {
+      const inA = isInside(a);
+      const inB = isInside(b);
+      const midLat = (a.lat + b.lat) * 0.5;
+      const midLng = (a.lng + b.lng) * 0.5;
+      const inMid = pointInAnyPolygon(midLat, midLng, clipPolys);
+      if (!(inA || inB || inMid)) return;
+    }
+    segments.push({ a, b });
+  };
+
+  for (let r = 0; r < topo.rows; r++) {
+    for (let c = 0; c < topo.cols; c++) {
+      const point = pointCache[r][c];
+      if (c + 1 < topo.cols) pushSegmentIfVisible(point, pointCache[r][c + 1]);
+      if (r + 1 < topo.rows) pushSegmentIfVisible(point, pointCache[r + 1][c]);
+    }
+  }
+
+  state.topography.wireGeometry = {
+    key: geometryKey,
+    segmentCount: segments.length,
+    segments
+  };
+  return state.topography.wireGeometry;
+}
+
 function makeGridAxis(min, max, count, descending = false) {
   const out = [];
   const steps = Math.max(count - 1, 1);
@@ -2231,6 +2485,43 @@ function resolveTopographyQuality(resolution, contours) {
     if (Math.round(res) === preset.resolution && Math.round(cnt) === preset.contours) return quality;
   }
   return 'custom';
+}
+
+function resetTopographyContourGeometry() {
+  state.topography.contourGeometry = {
+    key: '',
+    segmentCount: 0,
+    levels: [],
+    segments: []
+  };
+}
+
+function resetTopographyWireGeometry() {
+  state.topography.wireGeometry = {
+    key: '',
+    segmentCount: 0,
+    segments: []
+  };
+}
+
+function getOutlineClipPolygons() {
+  return splitOutlineSegments(state.countryOutline)
+    .map(seg => seg.filter(isValidGeoPoint))
+    .filter(seg => seg.length >= 3);
+}
+
+function getTopographyClipSignature(polygons) {
+  if (!polygons?.length) return 'noclip';
+  const first = polygons[0]?.[0];
+  const lastPoly = polygons[polygons.length - 1];
+  const last = lastPoly?.[lastPoly.length - 1];
+  return [
+    state.currentCountryKey || 'countryless',
+    state.outlineFilterMode || 'all',
+    polygons.length,
+    first ? `${first.lat.toFixed(3)},${first.lng.toFixed(3)}` : 'na',
+    last ? `${last.lat.toFixed(3)},${last.lng.toFixed(3)}` : 'na'
+  ].join('|');
 }
 
 function syncTopographyQualityFromControls() {
@@ -2298,6 +2589,7 @@ function applyTopographyPayload(payload, options = {}) {
   } = options;
   if (!isValidTopographyPayload(payload)) return false;
   const resolvedQuality = quality || resolveTopographyQuality(payload.rows, contourCount);
+  const nextContourCount = Number.isFinite(contourCount) ? contourCount : state.topography.contourCount;
   state.topography = {
     ...state.topography,
     loaded: true,
@@ -2310,11 +2602,13 @@ function applyTopographyPayload(payload, options = {}) {
     max: Number(payload.max),
     quality: resolvedQuality,
     mode: mode || state.topography.mode,
-    contourCount: Number.isFinite(contourCount) ? contourCount : state.topography.contourCount,
+    contourCount: nextContourCount,
     source: sourceOverride || String(payload.source || state.topography.source),
     cacheKey: cacheKey || String(payload.cacheKey || ''),
     cacheState
   };
+  resetTopographyContourGeometry();
+  resetTopographyWireGeometry();
   markStaticDirty();
   if (ui.topoQuality) ui.topoQuality.value = resolvedQuality;
   updateRawView();
@@ -2528,6 +2822,8 @@ async function loadTopographyFromOpenData(options = {}) {
     } catch (err) {
       console.warn('Topography cache write failed:', err);
     }
+    resetTopographyContourGeometry();
+    resetTopographyWireGeometry();
     markStaticDirty();
     updateRawView();
     updateDebugView();
@@ -2562,6 +2858,8 @@ function clearTopography() {
     cacheKey: '',
     cacheState: 'cleared'
   };
+  resetTopographyContourGeometry();
+  resetTopographyWireGeometry();
   markStaticDirty();
   updateRawView();
   updateDebugView();
@@ -2570,145 +2868,101 @@ function clearTopography() {
   syncActionAvailability();
 }
 
+function projectTopographyPoint(point, cam, topoHeightScale, mode) {
+  const mode3d = mode === 'contour3d' || mode === 'wireframe3d';
+  if (getMapProjectionMode() === 'globe') {
+    const radial = mode3d ? point.levelNorm * topoHeightScale * 0.32 : 0;
+    const w = geoToCameraWorld(point.lat, point.lng, radial);
+    return project(w.x, w.y, w.z, cam);
+  }
+  const w = geoToCameraWorld(point.lat, point.lng, 0);
+  const y = mode3d ? -point.levelNorm * topoHeightScale : 0;
+  return project(w.x, y, w.z, cam);
+}
+
 function drawTopographyContours(targetCtx, cam) {
   if (!state.layerVisible.topography) return;
   const topo = state.topography;
   if (!topo.loaded || topo.rows < 2 || topo.cols < 2) return;
-  const min = topo.min;
-  const max = topo.max;
-  const span = Math.max(max - min, 1e-6);
-  const contourCount = Math.max(2, topo.contourCount | 0);
-  const levels = [];
-  for (let i = 1; i <= contourCount; i++) levels.push(min + (span * i) / (contourCount + 1));
-  const mode3d = topo.mode === 'contour3d';
+  const mode = topo.mode || 'contour2d';
+  const mode3d = mode === 'contour3d';
+  if (mode !== 'contour2d' && mode !== 'contour3d') return;
   const topoColor = ui.topoColor?.value || '#8dffcf';
   const topoOpacity = Number(ui.topoOpacity?.value || 0.68);
   const topoLineWidth = Number(ui.topoLineWidth?.value || 1.1);
   const topoHeightScale = Number(ui.topoHeightScale?.value || 0.26);
-  const clipPolys = splitOutlineSegments(state.countryOutline).map(seg => seg.filter(isValidGeoPoint)).filter(seg => seg.length >= 3);
-  const clipToOutline = clipPolys.length > 0;
-  const dragging = !!state.interaction.dragging;
-  const cellCount = Math.max(1, (topo.rows - 1) * (topo.cols - 1));
-  let cellStride = 1;
-  if (dragging) {
-    cellStride = cellCount > 9000 ? 3 : 2;
-  } else if (cellCount > 16000) {
-    cellStride = 2;
+  const interactionLod = isInteractionLodActive();
+  const geometry = buildTopographyContourGeometry();
+  if (!geometry.segmentCount) return;
+  const levelStride = interactionLod && geometry.levels.length > 8 ? 2 : 1;
+  let segmentStride = 1;
+  if (interactionLod) {
+    if (geometry.segmentCount > 24000) segmentStride = 5;
+    else if (geometry.segmentCount > 12000) segmentStride = 4;
+    else if (geometry.segmentCount > 6000) segmentStride = 3;
+    else if (geometry.segmentCount > 2500) segmentStride = 2;
+  } else if (geometry.segmentCount > 32000) {
+    segmentStride = 2;
   }
-  const levelStride = dragging && levels.length > 10 ? 2 : 1;
-
-  const cellPoint = (r, c, elevFor3d) => {
-    const lat = topo.latList[r];
-    const lng = topo.lngList[c];
-    const norm = mode3d ? ((elevFor3d - min) / span) : 0;
-    if (getMapProjectionMode() === 'globe') {
-      const radial = mode3d ? norm * topoHeightScale * 0.32 : 0;
-      const w0 = geoToCameraWorld(lat, lng, radial);
-      return { x: w0.x, y: w0.y, z: w0.z };
-    }
-    const w0 = geoToCameraWorld(lat, lng, 0);
-    // Flat mode uses negative Y for "up" (same visual direction as pin stems).
-    const h = mode3d ? -norm * topoHeightScale : 0;
-    return { x: w0.x, y: h, z: w0.z };
-  };
-
-  const edgePoint = (edge, p0, p1, p2, p3, g0, g1, g2, g3, v0, v1, v2, v3, level) => {
-    const lerp = (a, b, t) => a + (b - a) * t;
-    const interp = (pa, pb, ga, gb, va, vb) => {
-      const t = Math.abs(vb - va) < 1e-6 ? 0.5 : (level - va) / (vb - va);
-      return {
-        x: lerp(pa.x, pb.x, t),
-        y: lerp(pa.y, pb.y, t),
-        z: lerp(pa.z, pb.z, t),
-        lat: lerp(ga.lat, gb.lat, t),
-        lng: lerp(ga.lng, gb.lng, t)
-      };
-    };
-    if (edge === 0) return interp(p0, p1, g0, g1, v0, v1);
-    if (edge === 1) return interp(p1, p2, g1, g2, v1, v2);
-    if (edge === 2) return interp(p2, p3, g2, g3, v2, v3);
-    return interp(p3, p0, g3, g0, v3, v0);
-  };
-
-  const cases = {
-    0: [],
-    1: [[3, 0]],
-    2: [[0, 1]],
-    3: [[3, 1]],
-    4: [[1, 2]],
-    5: [[3, 2], [0, 1]],
-    6: [[0, 2]],
-    7: [[3, 2]],
-    8: [[2, 3]],
-    9: [[0, 2]],
-    10: [[0, 3], [1, 2]],
-    11: [[1, 2]],
-    12: [[1, 3]],
-    13: [[0, 1]],
-    14: [[0, 3]],
-    15: []
-  };
 
   targetCtx.save();
   targetCtx.strokeStyle = hexToRgba(topoColor, topoOpacity);
   targetCtx.lineWidth = topoLineWidth;
   targetCtx.shadowColor = topoColor;
-  targetCtx.shadowBlur = mode3d ? 6 : 3;
+  targetCtx.shadowBlur = interactionLod ? 0 : (mode3d ? 6 : 3);
   targetCtx.globalAlpha = mode3d ? 0.9 : 0.72;
+  for (let i = 0; i < geometry.segments.length; i += segmentStride) {
+    const segment = geometry.segments[i];
+    if (segment.levelIndex % levelStride !== 0) continue;
+    const pa = projectTopographyPoint(segment.a, cam, topoHeightScale, mode);
+    const pb = projectTopographyPoint(segment.b, cam, topoHeightScale, mode);
+    if (!isProjectedSegmentRenderable(pa, pb, 28)) continue;
+    targetCtx.beginPath();
+    targetCtx.moveTo(pa.x, pa.y);
+    targetCtx.lineTo(pb.x, pb.y);
+    targetCtx.stroke();
+  }
+  targetCtx.restore();
+}
 
-  for (let r = 0; r < topo.rows - 1; r += cellStride) {
-    for (let c = 0; c < topo.cols - 1; c += cellStride) {
-      if (clipToOutline) {
-        const r1 = Math.min(topo.rows - 1, r + cellStride);
-        const c1 = Math.min(topo.cols - 1, c + cellStride);
-        const centerLat = (topo.latList[r] + topo.latList[r1]) * 0.5;
-        const centerLng = (topo.lngList[c] + topo.lngList[c1]) * 0.5;
-        if (!pointInAnyPolygon(centerLat, centerLng, clipPolys)) continue;
-      }
-      const r1 = Math.min(topo.rows - 1, r + cellStride);
-      const c1 = Math.min(topo.cols - 1, c + cellStride);
-      const v0 = topo.values[r][c];
-      const v1 = topo.values[r][c1];
-      const v2 = topo.values[r1][c1];
-      const v3 = topo.values[r1][c];
-      const g0 = { lat: topo.latList[r], lng: topo.lngList[c] };
-      const g1 = { lat: topo.latList[r], lng: topo.lngList[c1] };
-      const g2 = { lat: topo.latList[r1], lng: topo.lngList[c1] };
-      const g3 = { lat: topo.latList[r1], lng: topo.lngList[c] };
-      const p0 = cellPoint(r, c, v0);
-      const p1 = cellPoint(r, c1, v1);
-      const p2 = cellPoint(r1, c1, v2);
-      const p3 = cellPoint(r1, c, v3);
+function drawTopographyWireframe(targetCtx, cam) {
+  if (!state.layerVisible.topography) return;
+  const topo = state.topography;
+  if (!topo.loaded || topo.rows < 2 || topo.cols < 2) return;
+  if (topo.mode !== 'wireframe3d') return;
+  const topoColor = ui.topoColor?.value || '#8dffcf';
+  const topoOpacity = Number(ui.topoOpacity?.value || 0.68);
+  const topoLineWidth = Number(ui.topoLineWidth?.value || 1.1);
+  const topoHeightScale = Number(ui.topoHeightScale?.value || 0.26);
+  const interactionLod = isInteractionLodActive();
+  const geometry = buildTopographyWireframeGeometry();
+  if (!geometry.segmentCount) return;
 
-      for (let li = 0; li < levels.length; li += levelStride) {
-        const level = levels[li];
-        const idx =
-          (v0 >= level ? 1 : 0) |
-          (v1 >= level ? 2 : 0) |
-          (v2 >= level ? 4 : 0) |
-          (v3 >= level ? 8 : 0);
-        const segments = cases[idx];
-        if (!segments?.length) continue;
-        for (const [eA, eB] of segments) {
-          const a = edgePoint(eA, p0, p1, p2, p3, g0, g1, g2, g3, v0, v1, v2, v3, level);
-          const b = edgePoint(eB, p0, p1, p2, p3, g0, g1, g2, g3, v0, v1, v2, v3, level);
-          if (clipToOutline) {
-            const midLat = (a.lat + b.lat) * 0.5;
-            const midLng = (a.lng + b.lng) * 0.5;
-            const inA = pointInAnyPolygon(a.lat, a.lng, clipPolys);
-            const inB = pointInAnyPolygon(b.lat, b.lng, clipPolys);
-            const inMid = pointInAnyPolygon(midLat, midLng, clipPolys);
-            if (!(inA || inB || inMid)) continue;
-          }
-          const pa = project(a.x, a.y, a.z, cam);
-          const pb = project(b.x, b.y, b.z, cam);
-          targetCtx.beginPath();
-          targetCtx.moveTo(pa.x, pa.y);
-          targetCtx.lineTo(pb.x, pb.y);
-          targetCtx.stroke();
-        }
-      }
-    }
+  let segmentStride = 1;
+  if (interactionLod) {
+    if (geometry.segmentCount > 22000) segmentStride = 6;
+    else if (geometry.segmentCount > 12000) segmentStride = 4;
+    else if (geometry.segmentCount > 6000) segmentStride = 3;
+    else if (geometry.segmentCount > 2500) segmentStride = 2;
+  } else if (geometry.segmentCount > 32000) {
+    segmentStride = 2;
+  }
+
+  targetCtx.save();
+  targetCtx.strokeStyle = hexToRgba(topoColor, topoOpacity);
+  targetCtx.lineWidth = topoLineWidth;
+  targetCtx.shadowColor = topoColor;
+  targetCtx.shadowBlur = interactionLod ? 0 : 6;
+  targetCtx.globalAlpha = 0.88;
+  for (let i = 0; i < geometry.segments.length; i += segmentStride) {
+    const segment = geometry.segments[i];
+    const pa = projectTopographyPoint(segment.a, cam, topoHeightScale, 'wireframe3d');
+    const pb = projectTopographyPoint(segment.b, cam, topoHeightScale, 'wireframe3d');
+    if (!isProjectedSegmentRenderable(pa, pb, 28)) continue;
+    targetCtx.beginPath();
+    targetCtx.moveTo(pa.x, pa.y);
+    targetCtx.lineTo(pb.x, pb.y);
+    targetCtx.stroke();
   }
   targetCtx.restore();
 }
@@ -2737,6 +2991,7 @@ function buildAnimatedPath() {
 
 function drawPath(cam) {
   if (!state.layerVisible.path) return;
+  const interactionLod = isInteractionLodActive();
   const pts = buildAnimatedPath();
   if (!pts.length) return;
   const c = ui.pathColor.value;
@@ -2753,10 +3008,11 @@ function drawPath(cam) {
   for (let i = 0; i < projected.length - 1; i++) {
     const a = projected[i];
     const b = projected[i + 1];
+    if (!isProjectedSegmentRenderable(a, b, 28)) continue;
     const z = (a.z + b.z) * 0.5;
     const dof = getDepthOfFieldForZ(z);
     ctx.globalAlpha = dof.alpha * pathOpacity;
-    ctx.shadowBlur = 8 + dof.blur;
+    ctx.shadowBlur = interactionLod ? 0 : 8 + dof.blur;
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
@@ -2768,10 +3024,12 @@ function drawPath(cam) {
 function drawPins(cam) {
   if (!state.layerVisible.pins) return;
   if (!state.pins.length) return;
+  const interactionLod = isInteractionLodActive();
   const c = ui.pinColor.value;
   const labelColor = ui.pinLabelColor?.value || c;
   const size = Number(ui.pinSize.value);
   const routeProgress = getRouteProgressFromTimeline();
+  const showLabels = !interactionLod && state.pins.length <= 180;
   state.lastProjectedPins = [];
 
   ctx.save();
@@ -2779,7 +3037,7 @@ function drawPins(cam) {
   ctx.fillStyle = c;
   ctx.strokeStyle = c;
   ctx.shadowColor = c;
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = interactionLod ? 0 : 10;
   ctx.lineWidth = 1.2;
 
   const routeAnchors = state.timelineAnchors.length
@@ -2793,9 +3051,10 @@ function drawPins(cam) {
     const tipW = geoToCameraWorld(pin.lat, pin.lng, globeMode ? 0.05 : -0.06);
     const base = project(baseW.x, baseW.y, baseW.z, cam);
     const top = project(tipW.x, tipW.y, tipW.z, cam);
+    if (!isProjectedPointRenderable(top, 40) && !isProjectedSegmentRenderable(base, top, 40)) return;
     const dof = getDepthOfFieldForZ(top.z);
     ctx.globalAlpha = dof.alpha;
-    ctx.shadowBlur = 10 + dof.blur;
+    ctx.shadowBlur = interactionLod ? 0 : 10 + dof.blur;
     state.lastProjectedPins.push({ id: pin.id, x: top.x, y: top.y });
 
     ctx.beginPath();
@@ -2813,22 +3072,28 @@ function drawPins(cam) {
       ctx.stroke();
     }
 
-    ctx.fillStyle = labelColor;
-    ctx.fillText(pin.label, top.x + size + 5, top.y - 3);
-    ctx.fillStyle = c;
+    if (showLabels || pin.id === state.selectedPinId) {
+      ctx.fillStyle = labelColor;
+      if (pin.id === state.selectedPinId || isProjectedPointRenderable(top, 72)) {
+        ctx.fillText(pin.label, top.x + size + 5, top.y - 3);
+      }
+      ctx.fillStyle = c;
+    }
   });
   ctx.restore();
 }
 
 function drawHUD() {
+  const interactionLod = isInteractionLodActive();
   ui.hudPins.textContent = `Pins: ${state.pins.length}`;
   ui.hudPath.textContent = `Path nodes: ${state.path.length}`;
   ui.hudTime.textContent = `Timeline: ${(state.progress * 100).toFixed(1)}%`;
   ui.hudCam.textContent = `Cam: y ${state.camera.yaw.toFixed(2)} p ${state.camera.pitch.toFixed(2)} z ${state.camera.zoom.toFixed(1)} fx ${state.camera.focusX.toFixed(2)} fz ${state.camera.focusZ.toFixed(2)}`;
-  ui.hudFps.textContent = state.playing || state.interaction.dragging ? `FPS: ${state.perf.fps.toFixed(0)}` : 'FPS: idle';
+  ui.hudFps.textContent = state.playing || interactionLod ? `FPS: ${state.perf.fps.toFixed(0)}${interactionLod ? ' LOD' : ''}` : 'FPS: idle';
 }
 
 function drawCornerOrientationGlobe() {
+  const interactionLod = isInteractionLodActive();
   const cx = 66;
   const cy = 72;
   const r = 34;
@@ -2857,8 +3122,9 @@ function drawCornerOrientationGlobe() {
     let started = false;
     let prevFront = false;
     ctx.beginPath();
-    for (let i = 0; i <= 120; i++) {
-      const t = (i / 120) * Math.PI * 2;
+    const steps = interactionLod ? 48 : 120;
+    for (let i = 0; i <= steps; i++) {
+      const t = (i / steps) * Math.PI * 2;
       const p = pointAt(t);
       const q = projectSphere(p.x, p.y, p.z);
       const front = q.z >= 0;
@@ -2883,7 +3149,7 @@ function drawCornerOrientationGlobe() {
   ctx.strokeStyle = hexToRgba(panelLine, 0.72);
   ctx.lineWidth = 1;
   ctx.shadowColor = hexToRgba(accent2, 0.45);
-  ctx.shadowBlur = 6;
+  ctx.shadowBlur = interactionLod ? 0 : 6;
   ctx.beginPath();
   ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
   ctx.fill();
@@ -2919,7 +3185,7 @@ function drawCornerOrientationGlobe() {
   ctx.strokeStyle = hexToRgba(warn, 0.95);
   ctx.fillStyle = hexToRgba(warn, 0.95);
   ctx.shadowColor = hexToRgba(warn, 0.68);
-  ctx.shadowBlur = 5;
+  ctx.shadowBlur = interactionLod ? 0 : 5;
   ctx.beginPath();
   ctx.moveTo(cx, cy);
   ctx.lineTo(ax, ay);
@@ -2946,36 +3212,41 @@ function drawCornerOrientationGlobe() {
   ctx.fill();
 
   ctx.shadowBlur = 0;
-  ctx.font = '10px monospace';
-  for (const a of anchors) {
-    const dx = a.p.x - cx;
-    const dy = a.p.y - cy;
-    const len = Math.max(Math.hypot(dx, dy), 1e-6);
-    const tx = a.p.x + (dx / len) * 9 - 3;
-    const ty = a.p.y + (dy / len) * 9 + 3;
-    ctx.fillStyle = hexToRgba(a.color, a.label === 'N' ? 0.98 : 0.88);
-    ctx.fillText(a.label, tx, ty);
+  if (!interactionLod) {
+    ctx.font = '10px monospace';
+    for (const a of anchors) {
+      const dx = a.p.x - cx;
+      const dy = a.p.y - cy;
+      const len = Math.max(Math.hypot(dx, dy), 1e-6);
+      const tx = a.p.x + (dx / len) * 9 - 3;
+      const ty = a.p.y + (dy / len) * 9 + 3;
+      ctx.fillStyle = hexToRgba(a.color, a.label === 'N' ? 0.98 : 0.88);
+      ctx.fillText(a.label, tx, ty);
+    }
   }
   ctx.restore();
 }
 
 function drawCameraFocusMarker(cam) {
+  const interactionLod = isInteractionLodActive();
   const p = project(0, 0, 0, cam);
   const size = 8;
   ctx.save();
   ctx.strokeStyle = 'rgba(255, 210, 120, 0.9)';
   ctx.lineWidth = 1.2;
   ctx.shadowColor = 'rgba(255, 210, 120, 0.7)';
-  ctx.shadowBlur = 6;
+  ctx.shadowBlur = interactionLod ? 0 : 6;
   ctx.beginPath();
   ctx.moveTo(p.x - size, p.y);
   ctx.lineTo(p.x + size, p.y);
   ctx.moveTo(p.x, p.y - size);
   ctx.lineTo(p.x, p.y + size);
   ctx.stroke();
-  ctx.font = '10px monospace';
-  ctx.fillStyle = 'rgba(255, 230, 170, 0.95)';
-  ctx.fillText('FOCUS', p.x + size + 4, p.y - size - 2);
+  if (!interactionLod) {
+    ctx.font = '10px monospace';
+    ctx.fillStyle = 'rgba(255, 230, 170, 0.95)';
+    ctx.fillText('FOCUS', p.x + size + 4, p.y - size - 2);
+  }
   ctx.restore();
 }
 
@@ -3449,6 +3720,7 @@ function rebuildStaticLayer(cam) {
   drawTerrain(lctx, cam);
   drawGeoGrid(lctx, cam);
   drawTopographyContours(lctx, cam);
+  drawTopographyWireframe(lctx, cam);
   drawWorldContextOutline(lctx, cam);
   drawCountryOutline(lctx, cam);
 }
@@ -3465,6 +3737,7 @@ function requestRender() {
 
 function render(now = 0) {
   state.renderQueued = false;
+  const interactionLod = isInteractionLodActive(now);
   const dt = Math.min(0.045, (now - state.lastFrame) / 1000 || 0);
   state.lastFrame = now;
 
@@ -3496,7 +3769,7 @@ function render(now = 0) {
   updateTimelineMarkerActive();
   updateTimelinePlayhead();
 
-  if (state.playing || state.interaction.dragging) {
+  if (state.playing || interactionLod) {
     state.perf.frames += 1;
     if (!state.perf.sampleStart) state.perf.sampleStart = now;
     const elapsed = now - state.perf.sampleStart;
@@ -3707,6 +3980,7 @@ ui.reset.addEventListener('click', () => {
 });
 
 ui.timeline.addEventListener('input', () => {
+  noteInteractionActivity(220);
   state.progress = Number(ui.timeline.value) / 1000;
   state.playing = false;
   updatePlayPauseLabel();
@@ -3958,6 +4232,7 @@ ui.exportPng?.addEventListener('click', () => {
 canvas.addEventListener('mousedown', (e) => {
   if (e.button !== 0 && e.button !== 1) return;
   if (e.button === 1) e.preventDefault();
+  noteInteractionActivity(220);
   state.interaction.dragging = true;
   state.interaction.moved = false;
   state.interaction.mode = (e.button === 1 || e.shiftKey) ? 'pan' : 'orbit';
@@ -3968,6 +4243,7 @@ canvas.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mousemove', (e) => {
   if (!state.interaction.dragging) return;
+  noteInteractionActivity(220);
   const dx = e.clientX - state.interaction.x;
   const dy = e.clientY - state.interaction.y;
   state.interaction.x = e.clientX;
@@ -3993,6 +4269,7 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', (e) => {
   if (!state.interaction.dragging) return;
+  noteInteractionActivity(180);
   const shouldPick = state.interaction.button === 0;
   state.interaction.dragging = false;
   state.interaction.mode = '';
@@ -4003,6 +4280,7 @@ window.addEventListener('mouseup', (e) => {
 });
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
+  noteInteractionActivity(220);
   const delta = Math.sign(e.deltaY) * Math.max(0.05, state.camera.zoom * 0.08);
   setCamera(state.camera.yaw, state.camera.pitch, state.camera.zoom + delta, { syncUI: false });
   if (wheelSyncTimer) clearTimeout(wheelSyncTimer);
@@ -4016,9 +4294,27 @@ canvas.addEventListener('auxclick', (e) => {
 });
 
 window.addEventListener('resize', resize);
-const savedTheme = localStorage.getItem(themeStorageKey) || document.documentElement.getAttribute('data-theme') || 'mono-slate';
-applyTheme(savedTheme);
-ui.themeSelectApp.addEventListener('change', (e) => applyTheme(e.target.value));
+const savedTheme = (() => {
+  try {
+    return localStorage.getItem(themeStorageKey);
+  } catch (err) {
+    return null;
+  }
+})();
+if (window.DesignSystemThemeSelector && ui.themeSelectApp) {
+  const themeController = window.DesignSystemThemeSelector.initThemeSelector(ui.themeSelectApp, {
+    root: document.documentElement,
+    storageKey: themeStorageKey,
+    defaultTheme: document.documentElement.getAttribute('data-theme') || 'mono-slate'
+  });
+  applyTheme(themeController?.currentTheme || savedTheme || 'mono-slate');
+  ui.themeSelectApp.addEventListener('ds-theme-change', (e) => {
+    applyTheme(e?.detail?.theme || ui.themeSelectApp.value);
+  });
+} else {
+  applyTheme(savedTheme || document.documentElement.getAttribute('data-theme') || 'mono-slate');
+  ui.themeSelectApp?.addEventListener('change', (e) => applyTheme(e.target.value));
+}
 loadOutlineCacheFromStorage();
 loadGlobalBaselineFromStorage();
 setupTabs();
