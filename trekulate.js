@@ -2,6 +2,7 @@ const canvas = document.getElementById('view');
 const ctx = canvas.getContext('2d');
 
 const ui = {
+  viewerPanel: document.getElementById('viewerPanel'),
   themeSelectApp: document.getElementById('themeSelectApp'),
   tabMapping: document.getElementById('tabMapping'),
   tabRendering: document.getElementById('tabRendering'),
@@ -11,6 +12,25 @@ const ui = {
   tabDebug: document.getElementById('tabDebug'),
   tabExport: document.getElementById('tabExport'),
   tabSettings: document.getElementById('tabSettings'),
+  headerJourneyBtn: document.getElementById('headerJourneyBtn'),
+  headerJourneyName: document.getElementById('headerJourneyName'),
+  journeyDialog: document.getElementById('journeyDialog'),
+  closeJourneyDialogBtn: document.getElementById('closeJourneyDialogBtn'),
+  journeyList: document.getElementById('journeyList'),
+  journeyListPage: document.getElementById('journeyListPage'),
+  journeyCreatePage: document.getElementById('journeyCreatePage'),
+  openCreateJourney: document.getElementById('openCreateJourney'),
+  journeyName: document.getElementById('journeyName'),
+  journeyCreateRow: document.getElementById('journeyCreateRow'),
+  confirmCreateJourney: document.getElementById('confirmCreateJourney'),
+  cancelCreateJourney: document.getElementById('cancelCreateJourney'),
+  exportJourney: document.getElementById('exportJourney'),
+  importJourney: document.getElementById('importJourney'),
+  importJourneyFile: document.getElementById('importJourneyFile'),
+  saveJourneyNow: document.getElementById('saveJourneyNow'),
+  journeyStatus: document.getElementById('journeyStatus'),
+  journeyStatusText: document.getElementById('journeyStatusText'),
+  journeyStatusBadge: document.getElementById('journeyStatusBadge'),
   pinData: document.getElementById('pinData'),
   loadPins: document.getElementById('loadPins'),
   sampleRoute: document.getElementById('sampleRoute'),
@@ -46,6 +66,14 @@ const ui = {
   visGeoGrid: document.getElementById('visGeoGrid'),
   visTopography: document.getElementById('visTopography'),
   visSeaLevel: document.getElementById('visSeaLevel'),
+  quickPerfMode: document.getElementById('quickPerfMode'),
+  quickVisPins: document.getElementById('quickVisPins'),
+  quickVisPath: document.getElementById('quickVisPath'),
+  quickVisOutline: document.getElementById('quickVisOutline'),
+  quickVisWorldContext: document.getElementById('quickVisWorldContext'),
+  quickVisGeoGrid: document.getElementById('quickVisGeoGrid'),
+  quickVisTopography: document.getElementById('quickVisTopography'),
+  quickVisSeaLevel: document.getElementById('quickVisSeaLevel'),
   outlineColor: document.getElementById('outlineColor'),
   outlineOpacity: document.getElementById('outlineOpacity'),
   outlineWidth: document.getElementById('outlineWidth'),
@@ -93,10 +121,15 @@ const ui = {
   debugView: document.getElementById('debugView'),
   refreshDebug: document.getElementById('refreshDebug'),
   refreshRaw: document.getElementById('refreshRaw'),
+  appStatus: document.getElementById('appStatus'),
+  appStatusScope: document.getElementById('appStatusScope'),
+  appStatusText: document.getElementById('appStatusText'),
   toastWrap: document.getElementById('toastWrap'),
-  confirmDeleteDialog: document.getElementById('confirmDeleteDialog'),
-  confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
-  cancelDeleteBtn: document.getElementById('cancelDeleteBtn'),
+  confirmDialog: document.getElementById('confirmDialog'),
+  confirmDialogTitle: document.getElementById('confirmDialogTitle'),
+  confirmDialogBody: document.getElementById('confirmDialogBody'),
+  confirmDialogConfirmBtn: document.getElementById('confirmDialogConfirmBtn'),
+  confirmDialogCancelBtn: document.getElementById('confirmDialogCancelBtn'),
   helpDialog: document.getElementById('helpDialog'),
   helpDialogTitle: document.getElementById('helpDialogTitle'),
   helpDialogBody: document.getElementById('helpDialogBody'),
@@ -104,6 +137,7 @@ const ui = {
   panelHelpButtons: Array.from(document.querySelectorAll('.panel-help')),
   pinParseStatus: document.getElementById('pinParseStatus'),
   countryName: document.getElementById('countryName'),
+  countrySuggestions: document.getElementById('countrySuggestions'),
   outlineMainlandOnly: document.getElementById('outlineMainlandOnly'),
   outlineSegmentSelect: document.getElementById('outlineSegmentSelect'),
   centerOutlineSegment: document.getElementById('centerOutlineSegment'),
@@ -134,6 +168,10 @@ const ui = {
   topoStatus: document.getElementById('topoStatus'),
   exportPng: document.getElementById('exportPng'),
   exportStatus: document.getElementById('exportStatus'),
+  layoutToolbarPos: document.getElementById('layoutToolbarPos'),
+  layoutHudSide: document.getElementById('layoutHudSide'),
+  layoutCameraSide: document.getElementById('layoutCameraSide'),
+  layoutGlobeCorner: document.getElementById('layoutGlobeCorner'),
   hudPins: document.getElementById('hudPins'),
   hudPath: document.getElementById('hudPath'),
   hudTime: document.getElementById('hudTime'),
@@ -142,14 +180,82 @@ const ui = {
 };
 ui.tabButtons = [ui.tabMapping, ui.tabRendering, ui.tabCamera, ui.tabData, ui.tabRaw, ui.tabDebug, ui.tabExport, ui.tabSettings].filter(Boolean);
 ui.tabPanels = Array.from(document.querySelectorAll('[data-tab-panel]'));
+const feedback = window.TrekulateFeedback?.create(ui);
+if (!feedback) {
+  throw new Error('Trekulate feedback module failed to initialize.');
+}
+const {
+  applyStatusTone,
+  setStatus,
+  setPinImportStatus,
+  setTopoStatus,
+  setExportStatus,
+  confirmAction,
+  resolveConfirmDialog,
+  hasPendingConfirm
+} = feedback;
+let listJourneyEntries;
+let suggestJourneyName;
+let persistJourneysToStorage;
+let loadJourneysFromStorage;
+let renderJourneyList;
+let syncJourneyUI;
+let saveCurrentJourney;
+let deleteJourneyById;
+let openJourneyDialog;
+let closeJourneyDialog;
+let showJourneyCreateComposer;
+let hideJourneyCreateComposer;
+let loadJourneyFromModal;
+let confirmCreateJourney;
+let exportCurrentJourneyToFile;
+let importJourneyFromFile;
+let syncTopographyQualityFromControls;
+let applyTopographyQualityPreset;
+let buildTopographyCacheKey;
+let isValidTopographyPayload;
+let applyTopographyPayload;
+let loadTopographyFromOpenData;
+let clearTopography;
+let saveViewerLayoutPrefs;
+let applyViewerLayoutPrefs;
+let loadViewerLayoutPrefs;
+let setViewerLayoutPrefs;
+let syncPerformanceModeButton;
+let setPerformanceMode;
+let getMapProjectionMode;
+let syncProjectionButtons;
+let syncCameraToUI;
+let setCameraState;
+let setCamera;
+let setCameraPreset;
+let homeView;
+let fitMapToFrame;
+let nudgeGeoWindow;
+let drawTerrain;
+let drawCountryOutline;
+let drawWorldContextOutline;
+let drawGeoGrid;
+let drawTopographyContours;
+let drawTopographyWireframe;
+let drawPath;
+let drawPins;
+let drawHUD;
+let drawCornerOrientationGlobe;
+let drawCameraFocusMarker;
 
 const themeStorageKey = 'trekulate.theme';
+const layoutStorageKey = 'trekulate.viewerLayout';
+const journeyStorageKey = 'trekulate.journeys.v1';
+const currentJourneyStorageKey = 'trekulate.currentJourneyId.v1';
 const outlineCacheStorageKey = 'trekulate.countryOutlineCache.v1';
 const outlineCacheLimit = 24;
 const globalBaselineDbName = 'trekulate.cache.db';
 const globalBaselineStore = 'kv';
 const globalBaselineKey = 'worldContextBaseline.v2';
 const topographyCachePrefix = 'topography.v1';
+const CAMERA_NEAR_CLIP = 0.14;
+const CAMERA_RENDER_MIN_Z = 0.1;
 const TOPO_QUALITY_PRESETS = {
   low: { resolution: 18, contours: 8 },
   medium: { resolution: 30, contours: 12 },
@@ -288,13 +394,23 @@ const state = {
   },
   selectedPinId: null,
   routeDirty: false,
+  performanceMode: false,
+  currentJourneyId: '',
+  journeyDirty: false,
+  journeys: {},
+  uiLayout: {
+    toolbarPos: 'top-center',
+    hudSide: 'left',
+    cameraSide: 'right',
+    globeCorner: 'top-right'
+  },
   timelineMode: 'uniform',
   timelineAnchors: [],
   metadataDirty: false,
   metadataSnapshot: null,
   nextPinId: 1,
   lastProjectedPins: [],
-  perf: { fps: 0, frames: 0, sampleStart: 0 },
+  perf: { fps: 0, frames: 0, sampleStart: 0, frameMs: 0, staticMs: 0, staticScale: 1 },
   geoCache: {
     key: '',
     map: new Map()
@@ -302,13 +418,29 @@ const state = {
 };
 state.staticLayer.ctx = state.staticLayer.canvas.getContext('2d');
 let wheelSyncTimer = null;
+let journeyAutosaveTimer = null;
+let renderDefaultsInitialized = false;
 
 function noteInteractionActivity(durationMs = 160) {
   state.interaction.lodUntil = Math.max(state.interaction.lodUntil || 0, performance.now() + durationMs);
 }
 
 function isInteractionLodActive(now = performance.now()) {
-  return !!state.interaction.dragging || now < (state.interaction.lodUntil || 0);
+  return !!state.performanceMode || !!state.interaction.dragging || now < (state.interaction.lodUntil || 0);
+}
+
+function isHeavyScene() {
+  const topo = state.topography;
+  const topo3d = topo.loaded && (topo.mode === 'contour3d' || topo.mode === 'wireframe3d' || topo.mode === 'hybrid3d');
+  const topoDense = (topo.contourGeometry?.segmentCount || 0) > 8000 || (topo.wireGeometry?.segmentCount || 0) > 8000;
+  return topo3d || topoDense || (getMapProjectionMode() === 'globe' && topo.loaded);
+}
+
+function getStaticLayerScale(interactionLod = isInteractionLodActive()) {
+  if (state.performanceMode) return isHeavyScene() ? 0.42 : 0.56;
+  if (!interactionLod) return 1;
+  if (getMapProjectionMode() === 'globe') return isHeavyScene() ? 0.52 : 0.68;
+  return isHeavyScene() ? 0.62 : 0.78;
 }
 
 function cssVar(name, fallback = '') {
@@ -493,6 +625,7 @@ function loadOutlineCacheFromStorage() {
       };
     }
     state.outlineCache = out;
+    refreshCountrySuggestions();
   } catch (err) {
     console.warn('Failed to load outline cache:', err);
     state.outlineCache = {};
@@ -539,6 +672,7 @@ async function loadGlobalBaselineFromStorage() {
     const entries = Array.isArray(payload?.entries) ? payload.entries.map(normalizeBaselineEntry).filter(Boolean) : [];
     state.globalBaseline.entries = entries;
     state.globalBaseline.loaded = entries.length > 0;
+    refreshCountrySuggestions();
     markStaticDirty();
     updateDebugView();
     requestRender();
@@ -572,13 +706,33 @@ function parseGlobalBaselineGeoJSON(featureCollection) {
     .map(annotateOutlineEntry);
 }
 
+function refreshCountrySuggestions() {
+  if (!ui.countrySuggestions) return;
+  const names = new Set();
+  for (const entry of Object.values(state.outlineCache || {})) {
+    const name = String(entry?.name || '').trim();
+    if (name) names.add(name);
+  }
+  for (const entry of state.globalBaseline.entries || []) {
+    const name = String(entry?.name || '').trim();
+    if (name) names.add(name);
+  }
+  const sorted = Array.from(names).sort((a, b) => a.localeCompare(b));
+  ui.countrySuggestions.innerHTML = '';
+  for (const name of sorted) {
+    const option = document.createElement('option');
+    option.value = name;
+    ui.countrySuggestions.appendChild(option);
+  }
+}
+
 async function syncGlobalBaselineFromNetwork() {
   if (state.globalBaseline.loading) return;
   if (!ensureNetworkContext('global context baseline sync')) return;
   state.globalBaseline.loading = true;
   setButtonBusy(ui.syncGlobalBaseline, true, 'Syncing...');
   try {
-    setStatus('Syncing global outline baseline...');
+    setStatus('Syncing global outline baseline...', 'Data', 'info');
     const sources = [
       'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson',
       'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson'
@@ -599,8 +753,9 @@ async function syncGlobalBaselineFromNetwork() {
     if (parsed.length < 20) throw lastErr || new Error('Global baseline parse produced too few countries.');
     state.globalBaseline.entries = parsed;
     state.globalBaseline.loaded = true;
+    refreshCountrySuggestions();
     await idbSet(globalBaselineKey, { version: 2, fetchedAt: Date.now(), entries: parsed });
-    setStatus(`Global baseline synced (${parsed.length} countries).`);
+    setStatus(`Global baseline synced (${parsed.length} countries).`, 'Data', 'success');
     toast(`Global baseline synced (${parsed.length})`, 'ok');
     markStaticDirty();
     updateRawView();
@@ -609,7 +764,7 @@ async function syncGlobalBaselineFromNetwork() {
   } catch (err) {
     console.error(err);
     const reason = err?.message ? ` ${err.message}` : '';
-    setStatus(`Global baseline sync failed.${reason}`);
+    setStatus(`Global baseline sync failed.${reason}`, 'Data', 'error');
     toast('Global baseline sync failed', 'err');
   } finally {
     state.globalBaseline.loading = false;
@@ -632,6 +787,7 @@ function upsertOutlineCacheEntry(countryName, rawPath, source = 'nominatim') {
   });
   trimOutlineCache();
   saveOutlineCacheToStorage();
+  refreshCountrySuggestions();
 }
 
 function touchCachedOutline(countryName) {
@@ -669,10 +825,21 @@ function applyLoadedCountryOutline(countryName, rawPath, sourceLabel = 'cache') 
   applyCountryOutlineFilter();
   touchCachedOutline(countryName);
   const count = state.countryOutline.filter(isValidGeoPoint).length;
-  setStatus(`Loaded ${countryName} outline from ${sourceLabel} (${count} vertices).`);
+  const outlinePolys = splitOutlineSegments(state.countryOutlineRaw).filter(seg => seg.length >= 3);
+  const outOfOutlinePins = state.pins.filter(pin => !pointInAnyPolygon(pin.lat, pin.lng, outlinePolys));
+  if (outOfOutlinePins.length) {
+    setStatus(
+      `Loaded ${countryName} outline from ${sourceLabel}. ${outOfOutlinePins.length} pin(s) sit outside this country; use context or load another country for broader travel framing.`,
+      'Data',
+      'warn'
+    );
+  } else {
+    setStatus(`Loaded ${countryName} outline from ${sourceLabel} (${count} vertices).`, 'Data', 'success');
+  }
   markStaticDirty();
   updateRawView();
   updateDebugView();
+  markJourneyDirty(true);
   requestRender();
 }
 
@@ -690,21 +857,530 @@ function applyTheme(name) {
     // Ignore storage failures in restricted contexts.
   }
   if (ui.themeSelectApp) ui.themeSelectApp.value = nextTheme;
-  initRenderControlDefaultsFromTheme();
+  if (!renderDefaultsInitialized) {
+    initRenderControlDefaultsFromTheme();
+    renderDefaultsInitialized = true;
+  }
   markStaticDirty();
   requestRender();
 }
 
-function setStatus(text) {
-  ui.pinParseStatus.textContent = text;
+({
+  saveViewerLayoutPrefs,
+  applyViewerLayoutPrefs,
+  loadViewerLayoutPrefs,
+  setViewerLayoutPrefs,
+  syncPerformanceModeButton,
+  setPerformanceMode,
+  getMapProjectionMode,
+  syncProjectionButtons,
+  syncCameraToUI,
+  setCameraState,
+  setCamera,
+  setCameraPreset,
+  homeView,
+  fitMapToFrame,
+  nudgeGeoWindow
+} = (() => {
+  if (!window.TrekulateCamera?.create) {
+    throw new Error('Trekulate camera module failed to initialize.');
+  }
+  return window.TrekulateCamera.create({
+    state,
+    ui,
+    constants: {
+      layoutStorageKey,
+      CAMERA_DEFAULT
+    },
+    deps: {
+      clamp,
+      requestRender,
+      markStaticDirty,
+      resize,
+      updateDebugView,
+      refreshDebugIfVisible,
+      toast,
+      setGeoWindow,
+      mapToScene,
+      getCameraCache,
+      project,
+      isValidGeoPoint
+    }
+  });
+})());
+
+({
+  drawTerrain,
+  drawCountryOutline,
+  drawWorldContextOutline,
+  drawGeoGrid,
+  drawTopographyContours,
+  drawTopographyWireframe,
+  drawPath,
+  drawPins,
+  drawHUD,
+  drawCornerOrientationGlobe,
+  drawCameraFocusMarker
+} = (() => {
+  if (!window.TrekulateRenderLayers?.create) {
+    throw new Error('Trekulate render-layers module failed to initialize.');
+  }
+  return window.TrekulateRenderLayers.create({
+    state,
+    ui,
+    ctx,
+    deps: {
+      cssVar,
+      cssColorToHex,
+      clamp,
+      project,
+      projectWithDepth,
+      geoToCameraWorld,
+      mapToWorld,
+      getMapProjectionMode,
+      isInteractionLodActive,
+      isValidGeoPoint,
+      isProjectedPointRenderable,
+      isProjectedSegmentRenderable,
+      getDepthOfFieldForZ,
+      getContextOutlineEntries,
+      getEntryRenderPath,
+      WORLD_CONTEXT_FALLBACK,
+      buildTopographyContourGeometry,
+      buildTopographyWireframeGeometry,
+      projectTopographyPoint,
+      getRouteProgressFromTimeline
+    }
+  });
+})());
+
+function markJourneyDirty(isDirty = true) {
+  state.journeyDirty = !!isDirty;
+  if (!isDirty && journeyAutosaveTimer) {
+    clearTimeout(journeyAutosaveTimer);
+    journeyAutosaveTimer = null;
+  }
+  if (isDirty && state.currentJourneyId) {
+    if (journeyAutosaveTimer) clearTimeout(journeyAutosaveTimer);
+    journeyAutosaveTimer = setTimeout(() => {
+      journeyAutosaveTimer = null;
+      if (state.currentJourneyId && state.journeyDirty) saveCurrentJourney({ silent: true });
+    }, 420);
+  }
+  syncJourneyUI();
 }
 
-function setTopoStatus(text) {
-  if (ui.topoStatus) ui.topoStatus.textContent = text;
+function getRenderSettingsSnapshot() {
+  return {
+    mapProjection: state.mapProjection,
+    timelineMode: state.timelineMode,
+    geoWindow: { ...state.geoWindow },
+    outlineFilterMode: state.outlineFilterMode,
+    layerVisible: { ...state.layerVisible },
+    showGeoGrid: !!state.showGeoGrid,
+    geoStepLinked: !!state.geoStepLinked,
+    topography: {
+      quality: ui.topoQuality?.value || state.topography.quality,
+      resolution: Number(ui.topoResolution?.value || 30),
+      contours: Number(ui.topoContours?.value || state.topography.contourCount || 12),
+      mode: ui.topoMode?.value || state.topography.mode
+    },
+    controls: {
+      terrainColor: ui.terrainColor?.value || '',
+      terrainGlow: ui.terrainGlow?.value || '',
+      wireOpacity: ui.wireOpacity?.value || '',
+      terrainHeight: ui.terrainHeight?.value || '',
+      terrainPattern: ui.terrainPattern?.value || '',
+      terrainDensity: ui.terrainDensity?.value || '',
+      pathColor: ui.pathColor?.value || '',
+      pathOpacity: ui.pathOpacity?.value || '',
+      pathWidth: ui.pathWidth?.value || '',
+      pinColor: ui.pinColor?.value || '',
+      pinLabelColor: ui.pinLabelColor?.value || '',
+      pinSize: ui.pinSize?.value || '',
+      geoGridColor: ui.geoGridColor?.value || '',
+      geoGridOpacity: ui.geoGridOpacity?.value || '',
+      geoGridWidth: ui.geoGridWidth?.value || '',
+      geoLatStep: ui.geoLatStep?.value || '',
+      geoLngStep: ui.geoLngStep?.value || '',
+      geoLabelOpacity: ui.geoLabelOpacity?.value || '',
+      outlineColor: ui.outlineColor?.value || '',
+      outlineOpacity: ui.outlineOpacity?.value || '',
+      outlineWidth: ui.outlineWidth?.value || '',
+      worldContextColor: ui.worldContextColor?.value || '',
+      worldContextOpacity: ui.worldContextOpacity?.value || '',
+      worldContextWidth: ui.worldContextWidth?.value || '',
+      topoColor: ui.topoColor?.value || '',
+      topoOpacity: ui.topoOpacity?.value || '',
+      topoLineWidth: ui.topoLineWidth?.value || '',
+      topoHeightScale: ui.topoHeightScale?.value || ''
+    }
+  };
 }
 
-function setExportStatus(text) {
-  if (ui.exportStatus) ui.exportStatus.textContent = text;
+function buildJourneyPayload(name) {
+  return {
+    id: state.currentJourneyId || `journey_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    name: String(name || suggestJourneyName()).trim() || suggestJourneyName(),
+    createdAt: state.currentJourneyId && state.journeys[state.currentJourneyId]?.createdAt
+      ? state.journeys[state.currentJourneyId].createdAt
+      : Date.now(),
+    updatedAt: Date.now(),
+    pins: state.pins.map(pin => ({
+      id: Number(pin.id),
+      lat: Number(pin.lat),
+      lng: Number(pin.lng),
+      label: String(pin.label || ''),
+      timestamp: String(pin.timestamp || ''),
+      note: String(pin.note || ''),
+      source: String(pin.source || 'manual')
+    })),
+    path: state.path.map(node => ({
+      lat: Number(node.lat),
+      lng: Number(node.lng),
+      label: String(node.label || '')
+    })),
+    routeDirty: !!state.routeDirty,
+    selectedPinId: state.selectedPinId || null,
+    countryName: String(ui.countryName?.value || ''),
+    currentCountryKey: String(state.currentCountryKey || ''),
+    renderSettings: getRenderSettingsSnapshot()
+  };
+}
+
+function buildJourneyFilePayload(name) {
+  return {
+    kind: 'trekulate-journey',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    journey: buildJourneyPayload(name)
+  };
+}
+
+function normalizeImportedJourneyPayload(payload) {
+  if (!payload || typeof payload !== 'object') throw new Error('JSON file is empty or invalid.');
+  const root = payload.kind === 'trekulate-journey' ? payload.journey : payload;
+  if (!root || typeof root !== 'object') throw new Error('Journey payload missing.');
+  if (!Array.isArray(root.pins)) throw new Error('Journey file is missing a pin list.');
+  return {
+    ...root,
+    id: String(root.id || `journey_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+    name: String(root.name || suggestJourneyName()).trim() || suggestJourneyName()
+  };
+}
+
+function resetLoadedTopographyData() {
+  state.topography.loaded = false;
+  state.topography.values = [];
+  state.topography.rows = 0;
+  state.topography.cols = 0;
+  state.topography.latList = [];
+  state.topography.lngList = [];
+  state.topography.min = 0;
+  state.topography.max = 0;
+  state.topography.cacheKey = '';
+  state.topography.cacheState = 'none';
+  resetTopographyContourGeometry();
+  resetTopographyWireGeometry();
+  updateTopographyScaleUI();
+  setTopoStatus('Topography idle.');
+}
+
+function applyRenderSettingsSnapshot(snapshot = {}) {
+  const controls = snapshot.controls || {};
+  const topo = snapshot.topography || {};
+  const setValue = (el, value) => {
+    if (!el || value == null) return;
+    el.value = String(value);
+  };
+
+  state.mapProjection = snapshot.mapProjection === 'globe' ? 'globe' : 'flat';
+  if (ui.mapProjection) ui.mapProjection.value = state.mapProjection;
+  syncProjectionButtons();
+  state.timelineMode = snapshot.timelineMode === 'time' ? 'time' : 'uniform';
+  updateTimelineModeButton();
+
+  if (snapshot.geoWindow) {
+    state.geoWindow = {
+      ...state.geoWindow,
+      centerLat: clamp(Number(snapshot.geoWindow.centerLat ?? state.geoWindow.centerLat), -85, 85),
+      centerLng: clamp(Number(snapshot.geoWindow.centerLng ?? state.geoWindow.centerLng), -180, 180),
+      spanDeg: clamp(Number(snapshot.geoWindow.spanDeg ?? state.geoWindow.spanDeg), 0.5, 360),
+      fineScale: clamp(Number(snapshot.geoWindow.fineScale ?? state.geoWindow.fineScale), 0.2, 4),
+      manual: !!snapshot.geoWindow.manual
+    };
+    syncGeoWindowToUI();
+  }
+
+  if (snapshot.camera) setCameraState(snapshot.camera, { skipRender: true });
+
+  state.outlineFilterMode = snapshot.outlineFilterMode === 'all' ? 'all' : 'mainland';
+  if (ui.outlineMainlandOnly) ui.outlineMainlandOnly.value = state.outlineFilterMode;
+
+  state.layerVisible = {
+    ...state.layerVisible,
+    ...(snapshot.layerVisible || {})
+  };
+  state.showGeoGrid = snapshot.showGeoGrid !== false && !!state.layerVisible.geoGrid;
+  state.geoStepLinked = snapshot.geoStepLinked !== false;
+
+  setValue(ui.topoQuality, topo.quality || state.topography.quality);
+  setValue(ui.topoResolution, topo.resolution || TOPO_QUALITY_PRESETS.medium.resolution);
+  setValue(ui.topoContours, topo.contours || state.topography.contourCount);
+  setValue(ui.topoMode, topo.mode || state.topography.mode);
+  state.topography.quality = ui.topoQuality?.value || state.topography.quality;
+  state.topography.contourCount = Number(ui.topoContours?.value || state.topography.contourCount);
+  state.topography.mode = ui.topoMode?.value || state.topography.mode;
+
+  [
+    ['terrainColor', ui.terrainColor],
+    ['terrainGlow', ui.terrainGlow],
+    ['wireOpacity', ui.wireOpacity],
+    ['terrainHeight', ui.terrainHeight],
+    ['terrainPattern', ui.terrainPattern],
+    ['terrainDensity', ui.terrainDensity],
+    ['pathColor', ui.pathColor],
+    ['pathOpacity', ui.pathOpacity],
+    ['pathWidth', ui.pathWidth],
+    ['pinColor', ui.pinColor],
+    ['pinLabelColor', ui.pinLabelColor],
+    ['pinSize', ui.pinSize],
+    ['geoGridColor', ui.geoGridColor],
+    ['geoGridOpacity', ui.geoGridOpacity],
+    ['geoGridWidth', ui.geoGridWidth],
+    ['geoLatStep', ui.geoLatStep],
+    ['geoLngStep', ui.geoLngStep],
+    ['geoLabelOpacity', ui.geoLabelOpacity],
+    ['outlineColor', ui.outlineColor],
+    ['outlineOpacity', ui.outlineOpacity],
+    ['outlineWidth', ui.outlineWidth],
+    ['worldContextColor', ui.worldContextColor],
+    ['worldContextOpacity', ui.worldContextOpacity],
+    ['worldContextWidth', ui.worldContextWidth],
+    ['topoColor', ui.topoColor],
+    ['topoOpacity', ui.topoOpacity],
+    ['topoLineWidth', ui.topoLineWidth],
+    ['topoHeightScale', ui.topoHeightScale]
+  ].forEach(([key, el]) => setValue(el, controls[key]));
+
+  resetLoadedTopographyData();
+  syncLayerToggleButtons();
+  syncTopographyQualityFromControls();
+  updateTopographyScaleUI();
+}
+
+function restoreOutlineForJourney(countryName) {
+  const trimmed = String(countryName || '').trim();
+  if (!trimmed) {
+    state.currentCountryKey = '';
+    state.countryOutlineRaw = [];
+    state.countryOutline = [];
+    state.outlineSegmentsMeta = [];
+    state.selectedOutlineSegmentIndex = 0;
+    populateOutlineSegmentSelect();
+    return;
+  }
+  const cached = getCachedOutlineEntry(trimmed);
+  if (cached?.raw?.length) {
+    state.currentCountryKey = normalizeCountryKey(trimmed);
+    state.countryOutlineRaw = sanitizeOutlinePath(cached.raw, 5000);
+    applyCountryOutlineFilter();
+    return;
+  }
+  state.currentCountryKey = '';
+  state.countryOutlineRaw = [];
+  state.countryOutline = [];
+  state.outlineSegmentsMeta = [];
+  state.selectedOutlineSegmentIndex = 0;
+  populateOutlineSegmentSelect();
+}
+
+function applyJourneyPayload(journey, options = {}) {
+  const { silent = false } = options;
+  if (!journey) return;
+  state.currentJourneyId = journey.id || '';
+  if (ui.journeyName) ui.journeyName.value = journey.name || '';
+  if (ui.countryName) ui.countryName.value = journey.countryName || '';
+
+  state.pins = Array.isArray(journey.pins) ? journey.pins.map(pin => ({
+    id: Number(pin.id),
+    lat: Number(pin.lat),
+    lng: Number(pin.lng),
+    label: String(pin.label || ''),
+    timestamp: String(pin.timestamp || ''),
+    note: String(pin.note || ''),
+    source: String(pin.source || 'manual')
+  })).filter(pin => isValidLatLng(pin.lat, pin.lng)) : [];
+  state.nextPinId = Math.max(1, ...state.pins.map(pin => Number(pin.id) || 0)) + 1;
+  state.path = Array.isArray(journey.path) && journey.path.length
+    ? journey.path.map(node => ({ lat: Number(node.lat), lng: Number(node.lng), label: String(node.label || '') })).filter(isValidGeoPoint)
+    : state.pins.map(pin => ({ lat: pin.lat, lng: pin.lng, label: pin.label }));
+  state.routeDirty = !!journey.routeDirty;
+  state.selectedPinId = state.pins.some(pin => pin.id === journey.selectedPinId)
+    ? journey.selectedPinId
+    : (state.pins[0]?.id || null);
+  state.progress = 0;
+  state.playing = false;
+  if (ui.timeline) ui.timeline.value = '0';
+  updatePlayPauseLabel();
+
+  applyRenderSettingsSnapshot(journey.renderSettings || {});
+  restoreOutlineForJourney(journey.countryName || journey.currentCountryKey || '');
+  updateBounds();
+  refreshPinList();
+  rebuildTimelineAnchors();
+  updateRawView();
+  updateDebugView();
+  markStaticDirty();
+  markJourneyDirty(false);
+  syncActionAvailability();
+  if (!silent) {
+    toast(`Loaded ${journey.name}`, 'ok');
+    setStatus(`Loaded journey ${journey.name}.`, 'Journey', 'success');
+  }
+  requestRender();
+}
+
+function createNewJourneyWorkspace() {
+  state.currentJourneyId = '';
+  state.pins = [];
+  state.path = [];
+  state.countryOutline = [];
+  state.countryOutlineRaw = [];
+  state.currentCountryKey = '';
+  state.outlineSegmentsMeta = [];
+  state.selectedOutlineSegmentIndex = 0;
+  state.selectedPinId = null;
+  state.routeDirty = false;
+  state.progress = 0;
+  state.playing = false;
+  state.timelineAnchors = [];
+  state.metadataDirty = false;
+  state.metadataSnapshot = null;
+  resetLoadedTopographyData();
+  if (ui.pinData) ui.pinData.value = '';
+  if (ui.countryName) ui.countryName.value = '';
+  if (ui.timeline) ui.timeline.value = '0';
+  populateOutlineSegmentSelect();
+  refreshPinList();
+  updateBounds();
+  rebuildTimelineAnchors();
+  updateRawView();
+  updateDebugView();
+  markStaticDirty();
+  if (ui.journeyName) ui.journeyName.value = suggestJourneyName();
+  markJourneyDirty(true);
+  syncActionAvailability();
+  setStatus('Started a new journey workspace.', 'Journey', 'info');
+  toast('New journey workspace', 'ok');
+  requestRender();
+}
+
+({
+  listJourneyEntries,
+  suggestJourneyName,
+  persistJourneysToStorage,
+  loadJourneysFromStorage,
+  renderJourneyList,
+  syncJourneyUI,
+  saveCurrentJourney,
+  deleteJourneyById,
+  openJourneyDialog,
+  closeJourneyDialog,
+  showJourneyCreateComposer,
+  hideJourneyCreateComposer,
+  loadJourneyFromModal,
+  confirmCreateJourney,
+  exportCurrentJourneyToFile,
+  importJourneyFromFile
+} = (() => {
+  if (!window.TrekulateJourneys?.create) {
+    throw new Error('Trekulate journeys module failed to initialize.');
+  }
+  return window.TrekulateJourneys.create({
+  state,
+  ui,
+  storageKeys: {
+    journeyStorageKey,
+    currentJourneyStorageKey
+  },
+  buildJourneyPayload,
+  buildJourneyFilePayload,
+  normalizeImportedJourneyPayload,
+  applyJourneyPayload,
+  createNewJourneyWorkspace,
+  markJourneyDirty,
+  updateRawView,
+  toast,
+  setStatus,
+  confirmAction
+  });
+})());
+
+function bindJourneyDirtyTracking() {
+  [
+    ui.countryName,
+    ui.outlineMainlandOnly,
+    ui.geoCenterLat,
+    ui.geoCenterLng,
+    ui.geoSpanDeg,
+    ui.geoFineScale,
+    ui.mapProjection,
+    ui.topoQuality,
+    ui.topoResolution,
+    ui.topoContours,
+    ui.topoMode,
+    ui.terrainColor,
+    ui.terrainGlow,
+    ui.wireOpacity,
+    ui.terrainHeight,
+    ui.terrainPattern,
+    ui.terrainDensity,
+    ui.pathColor,
+    ui.pathOpacity,
+    ui.pathWidth,
+    ui.pinColor,
+    ui.pinLabelColor,
+    ui.pinSize,
+    ui.geoGridColor,
+    ui.geoGridOpacity,
+    ui.geoGridWidth,
+    ui.geoLatStep,
+    ui.geoLngStep,
+    ui.geoLabelOpacity,
+    ui.geoStepLink,
+    ui.outlineColor,
+    ui.outlineOpacity,
+    ui.outlineWidth,
+    ui.worldContextColor,
+    ui.worldContextOpacity,
+    ui.worldContextWidth,
+    ui.topoColor,
+    ui.topoOpacity,
+    ui.topoLineWidth,
+    ui.topoHeightScale,
+  ].filter(Boolean).forEach((el) => {
+    el.addEventListener('input', () => markJourneyDirty(true));
+    el.addEventListener('change', () => markJourneyDirty(true));
+  });
+}
+
+function updateTopographyScaleUI() {
+  if (!ui.topoHeightScale) return;
+  const exaggeration = Number(ui.topoHeightScale.value || 0);
+  const topo = state.topography;
+  const elevSpan = Math.max(0, Number(topo.max) - Number(topo.min));
+  const mode = topo.mode || ui.topoMode?.value || 'contour2d';
+  const modeLabel = mode === 'contour2d'
+    ? '2D contours'
+    : mode === 'contour3d'
+      ? '3D contours'
+      : mode === 'wireframe3d'
+        ? '3D wireframe'
+        : 'Hybrid 3D';
+  ui.topoHeightScale.title = topo.loaded
+    ? `Vertical exaggeration for ${modeLabel}. Uses the loaded local elevation span (${elevSpan.toFixed(0)} m), then applies a normalized visual scale of ${exaggeration.toFixed(2)}.`
+    : `Vertical exaggeration for ${modeLabel}. This is a normalized visual scale, not real meters. Current value: ${exaggeration.toFixed(2)}.`;
 }
 
 function ensureNetworkContext(taskName = 'network request') {
@@ -952,6 +1628,9 @@ function syncActionAvailability() {
   const hasOutlineRaw = state.countryOutlineRaw.some(isValidGeoPoint);
   const hasRouteOrMap = hasPath || hasOutline || hasOutlineRaw;
   const hasCountryName = !!ui.countryName?.value.trim();
+  const selectedCountryKey = normalizeCountryKey(ui.countryName?.value || '');
+  const hasCurrentOutline = !!state.currentCountryKey && hasOutlineRaw;
+  const selectedMatchesOutlined = hasCurrentOutline && selectedCountryKey === state.currentCountryKey;
   const hasOutlineSegments = state.outlineSegmentsMeta.length > 0;
   const hasTopo = !!state.topography.loaded;
   const hasBoundsSource = hasPins || hasPath || hasOutline;
@@ -972,15 +1651,21 @@ function syncActionAvailability() {
   if (ui.reset) ui.reset.disabled = !hasPlayback;
   if (ui.timeline) ui.timeline.disabled = !hasTimelineRange;
   if (ui.timelineModeBtn) ui.timelineModeBtn.disabled = state.pins.length < 2;
-  if (ui.loadCountry && !ui.loadCountry.classList.contains('is-busy')) ui.loadCountry.disabled = !hasCountryName;
-  if (ui.refreshCountry && !ui.refreshCountry.classList.contains('is-busy')) ui.refreshCountry.disabled = !hasCountryName;
+  if (ui.loadCountry && !ui.loadCountry.classList.contains('is-busy')) ui.loadCountry.disabled = !hasCountryName || selectedMatchesOutlined;
+  if (ui.refreshCountry && !ui.refreshCountry.classList.contains('is-busy')) ui.refreshCountry.disabled = !selectedMatchesOutlined;
   if (ui.outlineMainlandOnly) ui.outlineMainlandOnly.disabled = !hasOutlineRaw;
   if (ui.outlineSegmentSelect) ui.outlineSegmentSelect.disabled = !hasOutlineSegments;
   if (ui.centerOutlineSegment) ui.centerOutlineSegment.disabled = !hasOutlineSegments;
   if (ui.fitGeoWindow) ui.fitGeoWindow.disabled = !hasBoundsSource;
+  if (ui.geoNudgeN) ui.geoNudgeN.disabled = !hasBoundsSource;
+  if (ui.geoNudgeS) ui.geoNudgeS.disabled = !hasBoundsSource;
+  if (ui.geoNudgeE) ui.geoNudgeE.disabled = !hasBoundsSource;
+  if (ui.geoNudgeW) ui.geoNudgeW.disabled = !hasBoundsSource;
   if (ui.loadTopography && !ui.loadTopography.classList.contains('is-busy')) ui.loadTopography.disabled = !hasBoundsSource;
   if (ui.clearTopography && !ui.clearTopography.classList.contains('is-busy')) ui.clearTopography.disabled = !hasTopo;
   if (ui.refreshTopography && !ui.refreshTopography.classList.contains('is-busy')) ui.refreshTopography.disabled = !hasBoundsSource;
+  if (ui.topoMode) ui.topoMode.disabled = !hasTopo;
+  syncJourneyUI();
 }
 
 function setLayerToggleButton(btn, isOn) {
@@ -991,13 +1676,16 @@ function setLayerToggleButton(btn, isOn) {
     return;
   }
   btn.classList.toggle('is-on', !!isOn);
+  btn.classList.toggle('is-off', !isOn);
+  btn.setAttribute('aria-pressed', String(!!isOn));
+  if (btn.dataset.toggleStyle === 'static') return;
   if (btn === ui.geoStepLink) {
     btn.innerHTML = '<i class="iconoir-link" aria-hidden="true"></i>';
     return;
   }
   btn.innerHTML = isOn
-    ? '<i class="iconoir-eye" aria-hidden="true"></i>'
-    : '<i class="iconoir-eye-closed" aria-hidden="true"></i>';
+    ? '<span class="icon-current"><i class="iconoir-eye" aria-hidden="true"></i></span><span class="icon-next"><i class="iconoir-eye-closed" aria-hidden="true"></i></span>'
+    : '<span class="icon-current"><i class="iconoir-eye-closed" aria-hidden="true"></i></span><span class="icon-next"><i class="iconoir-eye" aria-hidden="true"></i></span>';
 }
 
 function syncLayerToggleButtons() {
@@ -1008,6 +1696,13 @@ function syncLayerToggleButtons() {
   setLayerToggleButton(ui.visGeoGrid, state.layerVisible.geoGrid);
   setLayerToggleButton(ui.visTopography, state.layerVisible.topography);
   setLayerToggleButton(ui.visSeaLevel, state.layerVisible.seaLevel);
+  setLayerToggleButton(ui.quickVisPins, state.layerVisible.pins);
+  setLayerToggleButton(ui.quickVisPath, state.layerVisible.path);
+  setLayerToggleButton(ui.quickVisOutline, state.layerVisible.outline);
+  setLayerToggleButton(ui.quickVisWorldContext, state.layerVisible.worldContext);
+  setLayerToggleButton(ui.quickVisGeoGrid, state.layerVisible.geoGrid);
+  setLayerToggleButton(ui.quickVisTopography, state.layerVisible.topography);
+  setLayerToggleButton(ui.quickVisSeaLevel, state.layerVisible.seaLevel);
   setLayerToggleButton(ui.geoStepLink, state.geoStepLinked);
 }
 
@@ -1018,6 +1713,7 @@ function setLayerVisibility(layerKey, on) {
   syncLayerToggleButtons();
   markStaticDirty();
   updateDebugView();
+  markJourneyDirty(true);
   requestRender();
 }
 
@@ -1066,6 +1762,9 @@ function setupCollapsibleGroups() {
 function updateRawView() {
   if (!ui.rawJsonView) return;
   const payload = {
+    currentJourneyId: state.currentJourneyId,
+    journeyDirty: state.journeyDirty,
+    savedJourneys: Object.keys(state.journeys || {}).length,
     pins: state.pins,
     path: state.path,
     countryOutline: state.countryOutline,
@@ -1166,9 +1865,11 @@ function updateDebugView() {
     `Topography cache state: ${topo.cacheState || 'none'}`,
     `Topography grid: ${topo.rows} x ${topo.cols}`,
     `Topography elevation min/max: ${Number(topo.min).toFixed(2)} / ${Number(topo.max).toFixed(2)}`,
+    `Topography elevation span: ${Math.max(0, Number(topo.max) - Number(topo.min)).toFixed(2)} m`,
     `Topography quality: ${topo.quality || 'custom'}`,
     `Topography mode: ${topo.mode}`,
     `Topography contours: ${topo.contourCount}`,
+    `Topography exaggeration: ${Number(ui.topoHeightScale?.value || 0).toFixed(2)} (normalized visual scale)`,
     `Topography contour cache key: ${topo.contourGeometry?.key || 'none'}`,
     `Topography contour segments: ${topo.contourGeometry?.segmentCount || 0}`,
     `Topography wire cache key: ${topo.wireGeometry?.key || 'none'}`,
@@ -1183,10 +1884,16 @@ function updateDebugView() {
     `Camera focusX/focusZ/focusY: ${state.camera.focusX.toFixed(3)} / ${state.camera.focusZ.toFixed(3)} / ${state.camera.focusY.toFixed(3)}`,
     `Camera focal/lens: ${state.camera.focalLength.toFixed(1)} / ${state.camera.lensAngle.toFixed(1)}`,
     '',
+    `Performance mode: ${state.performanceMode ? 'on' : 'off'}`,
     `Static dirty: ${state.staticDirty ? 'yes' : 'no'}`,
     `Playing: ${state.playing ? 'yes' : 'no'}`,
     `Render queued: ${state.renderQueued ? 'yes' : 'no'}`,
     `Interaction LOD: ${isInteractionLodActive() ? 'yes' : 'no'}`,
+    `Heavy scene: ${isHeavyScene() ? 'yes' : 'no'}`,
+    `Static layer scale: ${Number(state.perf.staticScale || 1).toFixed(2)}`,
+    `Static rebuild: ${Number(state.perf.staticMs || 0).toFixed(2)} ms`,
+    `Frame time: ${Number(state.perf.frameMs || 0).toFixed(2)} ms`,
+    `Geo cache size: ${state.geoCache.map.size}`,
     `FPS sample: ${state.perf.fps.toFixed(1)}`
   ];
   ui.debugView.value = lines.join('\n');
@@ -1641,10 +2348,6 @@ function noise(x, z) {
   return h * 0.5;
 }
 
-function getMapProjectionMode() {
-  return state.mapProjection === 'globe' ? 'globe' : 'flat';
-}
-
 function getGlobeRadius() {
   const fine = clamp(state.geoWindow.fineScale, 0.2, 4);
   return clamp(0.92 * fine, 0.36, 3.4);
@@ -1675,14 +2378,6 @@ function updateMapSettingsHint() {
     `Projection: ${projection}. Center Lat/Lng sets focus point. Window Span controls visible degree range in flat mode. Fine Scale controls map size multiplier.`;
 }
 
-function syncProjectionButtons() {
-  if (!ui.mapProjectionFlat || !ui.mapProjectionGlobe) return;
-  const isGlobe = getMapProjectionMode() === 'globe';
-  ui.mapProjectionFlat.classList.toggle('is-active', !isGlobe);
-  ui.mapProjectionGlobe.classList.toggle('is-active', isGlobe);
-  ui.mapProjectionFlat.setAttribute('aria-pressed', String(!isGlobe));
-  ui.mapProjectionGlobe.setAttribute('aria-pressed', String(isGlobe));
-}
 function mapToWorld(lat, lng) {
   const centerLat = state.geoWindow.centerLat;
   const centerLng = state.geoWindow.centerLng;
@@ -1770,7 +2465,7 @@ function project(x, y, z, cam) {
   const yShifted = y - cam.focusY;
   const y2 = yShifted * cam.cx - z1 * cam.sx;
   const z2 = yShifted * cam.sx + z1 * cam.cx + cam.zoom;
-  const persp = (cam.lensFactor * cam.focalNorm) / Math.max(0.6, z2);
+  const persp = (cam.lensFactor * cam.focalNorm) / Math.max(CAMERA_NEAR_CLIP, z2);
   const scale = state.dims.w * 0.38;
   const cx = state.dims.w * 0.5;
   const cy = state.dims.h * 0.53;
@@ -1788,7 +2483,7 @@ function projectWithDepth(x, y, z, cam) {
   const y2 = yShifted * cam.cx - z1 * cam.sx;
   const zCam = yShifted * cam.sx + z1 * cam.cx;
   const z2 = zCam + cam.zoom;
-  const persp = (cam.lensFactor * cam.focalNorm) / Math.max(0.6, z2);
+  const persp = (cam.lensFactor * cam.focalNorm) / Math.max(CAMERA_NEAR_CLIP, z2);
   const scale = state.dims.w * 0.38;
   const cx = state.dims.w * 0.5;
   const cy = state.dims.h * 0.53;
@@ -1801,7 +2496,7 @@ function projectWithDepth(x, y, z, cam) {
 
 function isProjectedPointRenderable(p, margin = 24) {
   if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) return false;
-  if (p.z <= 0.2) return false;
+  if (p.z <= CAMERA_RENDER_MIN_Z) return false;
   return (
     p.x >= -margin &&
     p.x <= state.dims.w + margin &&
@@ -1812,7 +2507,7 @@ function isProjectedPointRenderable(p, margin = 24) {
 
 function isProjectedSegmentRenderable(a, b, margin = 24) {
   if (!a || !b) return false;
-  if ((a.z <= 0.2 && b.z <= 0.2) || (!Number.isFinite(a.x) || !Number.isFinite(b.x))) return false;
+  if ((a.z <= CAMERA_RENDER_MIN_Z && b.z <= CAMERA_RENDER_MIN_Z) || (!Number.isFinite(a.x) || !Number.isFinite(b.x))) return false;
   const minX = Math.min(a.x, b.x);
   const maxX = Math.max(a.x, b.x);
   const minY = Math.min(a.y, b.y);
@@ -1866,379 +2561,6 @@ function hexToRgba(hex, a) {
   const clean = hex.replace('#', '');
   const x = parseInt(clean, 16);
   return `rgba(${(x >> 16) & 255},${(x >> 8) & 255},${x & 255},${a})`;
-}
-
-function drawTerrain(targetCtx, cam) {
-  if (!state.layerVisible.seaLevel) return;
-  const interactionLod = isInteractionLodActive();
-  const pattern = ui.terrainPattern?.value || 'grid';
-  const color = ui.terrainColor?.value || '#3cd7ff';
-  const opacity = Number(ui.wireOpacity?.value || 0.3);
-  const glow = interactionLod ? 0 : Number(ui.terrainGlow?.value || 0) * 6;
-  const density = Math.max(0.5, Number(ui.terrainDensity?.value || 6));
-  const y = Number(ui.terrainHeight?.value || 0);
-  const half = Math.max(state.geoWindow.spanDeg * 0.5, 1e-6);
-  const b = {
-    minLat: state.geoWindow.centerLat - half,
-    maxLat: state.geoWindow.centerLat + half,
-    minLng: state.geoWindow.centerLng - half,
-    maxLng: state.geoWindow.centerLng + half
-  };
-  const step = clamp(state.geoWindow.spanDeg / (density * (interactionLod ? 2.6 : 4)), 0.05, 45);
-  const latStart = Math.ceil(b.minLat / step) * step;
-  const lngStart = Math.ceil(b.minLng / step) * step;
-
-  targetCtx.save();
-  targetCtx.strokeStyle = hexToRgba(color, opacity);
-  targetCtx.fillStyle = hexToRgba(color, opacity);
-  targetCtx.lineWidth = 1;
-  targetCtx.shadowColor = color;
-  targetCtx.shadowBlur = glow;
-
-  if (getMapProjectionMode() === 'globe') {
-    const latStep = clamp(step * 1.15, 2, 30);
-    const lngStep = clamp(step * 1.15, 2, 30);
-    const lonDrawStep = Math.max(3, Math.min(8, Math.round(lngStep * 0.4)));
-
-    if (pattern === 'dots') {
-      for (let lat = -85; lat <= 85 + 1e-6; lat += latStep) {
-        for (let lng = -180; lng <= 180 + 1e-6; lng += lngStep) {
-          const w = geoToCameraWorld(lat, lng, y);
-          const p = project(w.x, w.y, w.z, cam);
-          targetCtx.beginPath();
-          targetCtx.arc(p.x, p.y, 1.05, 0, Math.PI * 2);
-          targetCtx.fill();
-        }
-      }
-      targetCtx.restore();
-      return;
-    }
-
-    for (let lat = -85; lat <= 85 + 1e-6; lat += latStep) {
-      let started = false;
-      targetCtx.beginPath();
-      for (let lng = -180; lng <= 180 + 1e-6; lng += lonDrawStep) {
-        const w = geoToCameraWorld(lat, lng, y);
-        const p = project(w.x, w.y, w.z, cam);
-        if (!started) {
-          targetCtx.moveTo(p.x, p.y);
-          started = true;
-        } else {
-          targetCtx.lineTo(p.x, p.y);
-        }
-      }
-      if (started) targetCtx.stroke();
-    }
-    for (let lng = -180; lng <= 180 + 1e-6; lng += lngStep) {
-      let started = false;
-      targetCtx.beginPath();
-      for (let lat = -85; lat <= 85 + 1e-6; lat += 3) {
-        const w = geoToCameraWorld(lat, lng, y);
-        const p = project(w.x, w.y, w.z, cam);
-        if (!started) {
-          targetCtx.moveTo(p.x, p.y);
-          started = true;
-        } else {
-          targetCtx.lineTo(p.x, p.y);
-        }
-      }
-      if (started) targetCtx.stroke();
-    }
-    if (pattern === 'hatch') {
-      for (let d = -160; d <= 160; d += lngStep * 1.4) {
-        let started = false;
-        targetCtx.beginPath();
-        for (let lat = -80; lat <= 80 + 1e-6; lat += 3) {
-          const lng = d + lat;
-          const w = geoToCameraWorld(lat, lng, y);
-          const p = project(w.x, w.y, w.z, cam);
-          if (!started) {
-            targetCtx.moveTo(p.x, p.y);
-            started = true;
-          } else {
-            targetCtx.lineTo(p.x, p.y);
-          }
-        }
-        if (started) targetCtx.stroke();
-      }
-    }
-    targetCtx.restore();
-    return;
-  }
-
-  if (pattern === 'grid' || pattern === 'hatch') {
-    let count = 0;
-    for (let lng = lngStart; lng <= b.maxLng + 1e-6; lng += step) {
-      const a = geoToCameraWorld(b.minLat, lng, y);
-      const z = geoToCameraWorld(b.maxLat, lng, y);
-      const p0 = project(a.x, a.y, a.z, cam);
-      const p1 = project(z.x, z.y, z.z, cam);
-      targetCtx.beginPath();
-      targetCtx.moveTo(p0.x, p0.y);
-      targetCtx.lineTo(p1.x, p1.y);
-      targetCtx.stroke();
-      if (++count > 180) break;
-    }
-    count = 0;
-    for (let lat = latStart; lat <= b.maxLat + 1e-6; lat += step) {
-      const a = geoToCameraWorld(lat, b.minLng, y);
-      const z = geoToCameraWorld(lat, b.maxLng, y);
-      const p0 = project(a.x, a.y, a.z, cam);
-      const p1 = project(z.x, z.y, z.z, cam);
-      targetCtx.beginPath();
-      targetCtx.moveTo(p0.x, p0.y);
-      targetCtx.lineTo(p1.x, p1.y);
-      targetCtx.stroke();
-      if (++count > 180) break;
-    }
-  }
-
-  if (pattern === 'dots') {
-    let rows = 0;
-    for (let lat = latStart; lat <= b.maxLat + 1e-6; lat += step) {
-      let cols = 0;
-      for (let lng = lngStart; lng <= b.maxLng + 1e-6; lng += step) {
-        const w = geoToCameraWorld(lat, lng, y);
-        const p = project(w.x, w.y, w.z, cam);
-        targetCtx.beginPath();
-        targetCtx.arc(p.x, p.y, 1.1, 0, Math.PI * 2);
-        targetCtx.fill();
-        if (++cols > 140) break;
-      }
-      if (++rows > 140) break;
-    }
-  }
-
-  if (pattern === 'hatch') {
-    const hatchStep = step * 1.35;
-    let n = 0;
-    for (let s = b.minLng - (b.maxLat - b.minLat); s <= b.maxLng + (b.maxLat - b.minLat); s += hatchStep) {
-      const pA = { lat: b.minLat, lng: s };
-      const pB = { lat: b.maxLat, lng: s + (b.maxLat - b.minLat) };
-      const w0 = geoToCameraWorld(pA.lat, pA.lng, y);
-      const w1 = geoToCameraWorld(pB.lat, pB.lng, y);
-      const a = project(w0.x, w0.y, w0.z, cam);
-      const b1 = project(w1.x, w1.y, w1.z, cam);
-      targetCtx.beginPath();
-      targetCtx.moveTo(a.x, a.y);
-      targetCtx.lineTo(b1.x, b1.y);
-      targetCtx.stroke();
-      if (++n > 160) break;
-    }
-  }
-
-  targetCtx.restore();
-}
-
-function drawCountryOutline(targetCtx, cam) {
-  if (!state.layerVisible.outline) return;
-  if (!state.countryOutline.length) return;
-  const interactionLod = isInteractionLodActive();
-  const outlineColor = ui.outlineColor?.value || cssVar('--tk-country-outline', '#8dffcf');
-  const outlineOpacity = Number(ui.outlineOpacity?.value || 0.32);
-  const outlineWidth = Number(ui.outlineWidth?.value || 1.2);
-  targetCtx.save();
-  targetCtx.strokeStyle = hexToRgba(outlineColor, outlineOpacity);
-  targetCtx.lineWidth = outlineWidth;
-  targetCtx.shadowColor = outlineColor;
-  targetCtx.shadowBlur = interactionLod ? 2 : 8;
-  let previous = null;
-  for (const pt of state.countryOutline) {
-    if (!isValidGeoPoint(pt)) {
-      previous = null;
-      continue;
-    }
-    const w = geoToCameraWorld(pt.lat, pt.lng, 0);
-    const p = project(w.x, w.y, w.z, cam);
-    if (previous && isProjectedSegmentRenderable(previous, p, 28)) {
-      targetCtx.beginPath();
-      targetCtx.moveTo(previous.x, previous.y);
-      targetCtx.lineTo(p.x, p.y);
-      targetCtx.stroke();
-    }
-    previous = p;
-  }
-  targetCtx.restore();
-}
-
-function drawWorldContextOutline(targetCtx, cam) {
-  if (!state.layerVisible.worldContext) return;
-  const entries = getContextOutlineEntries();
-  const useFallback = entries.length < 2 && !(state.globalBaseline.entries?.length);
-  const isGlobe = getMapProjectionMode() === 'globe';
-  const interactionLod = isInteractionLodActive();
-  const renderBudget = interactionLod ? (isGlobe ? 320 : 420) : (isGlobe ? 760 : 980);
-  const color = ui.worldContextColor?.value || cssVar('--ds-text-muted', '#6ecae3');
-  const opacity = Number(ui.worldContextOpacity?.value || 0.22);
-  const width = Number(ui.worldContextWidth?.value || 0.9);
-  targetCtx.save();
-  targetCtx.strokeStyle = hexToRgba(color, opacity);
-  targetCtx.lineWidth = width;
-  targetCtx.shadowColor = color;
-  targetCtx.shadowBlur = interactionLod ? 0 : 2;
-  if (useFallback) {
-    targetCtx.strokeStyle = hexToRgba(color, opacity * 0.7);
-    for (const segment of WORLD_CONTEXT_FALLBACK) {
-      if (!Array.isArray(segment) || segment.length < 2) continue;
-      let previous = null;
-      for (const pt of segment) {
-        if (!isValidGeoPoint(pt)) {
-          previous = null;
-          continue;
-        }
-        const w = geoToCameraWorld(pt.lat, pt.lng, 0);
-        const p = project(w.x, w.y, w.z, cam);
-        if (previous && isProjectedSegmentRenderable(previous, p, 28)) {
-          targetCtx.beginPath();
-          targetCtx.moveTo(previous.x, previous.y);
-          targetCtx.lineTo(p.x, p.y);
-          targetCtx.stroke();
-        }
-        previous = p;
-      }
-    }
-  }
-  for (const entry of entries) {
-    const path = getEntryRenderPath(entry, renderBudget);
-    if (path.filter(isValidGeoPoint).length < 2) continue;
-    let previous = null;
-    for (const pt of path) {
-      if (!isValidGeoPoint(pt)) {
-        previous = null;
-        continue;
-      }
-      const w = geoToCameraWorld(pt.lat, pt.lng, 0);
-      const p = isGlobe ? projectWithDepth(w.x, w.y, w.z, cam) : project(w.x, w.y, w.z, cam);
-      if (isGlobe && p.depth > 0) {
-        previous = null;
-        continue;
-      }
-      if (previous && isProjectedSegmentRenderable(previous, p, 28)) {
-        targetCtx.beginPath();
-        targetCtx.moveTo(previous.x, previous.y);
-        targetCtx.lineTo(p.x, p.y);
-        targetCtx.stroke();
-      }
-      previous = p;
-    }
-  }
-  targetCtx.restore();
-}
-
-function niceStep(span, targetLines = 6) {
-  const raw = Math.max(span / Math.max(2, targetLines), 1e-6);
-  const p = Math.pow(10, Math.floor(Math.log10(raw)));
-  const m = raw / p;
-  const base = m <= 1 ? 1 : (m <= 2 ? 2 : (m <= 5 ? 5 : 10));
-  return base * p;
-}
-
-function drawGeoGrid(targetCtx, cam) {
-  if (!state.layerVisible.geoGrid || !state.showGeoGrid) return;
-  const interactionLod = isInteractionLodActive();
-  const latStep = clamp(Number(ui.geoLatStep?.value || niceStep(state.geoWindow.spanDeg, 6)), 0.05, 60);
-  const lngStep = clamp(Number(ui.geoLngStep?.value || niceStep(state.geoWindow.spanDeg, 6)), 0.05, 60);
-  const latDigits = latStep < 1 ? 2 : 0;
-  const lngDigits = lngStep < 1 ? 2 : 0;
-  const color = ui.geoGridColor?.value || '#7dcbff';
-  const opacity = Number(ui.geoGridOpacity?.value || 0.22);
-  const width = Number(ui.geoGridWidth?.value || 1);
-  const labelOpacity = interactionLod ? 0 : Number(ui.geoLabelOpacity?.value || 0.68);
-
-  targetCtx.save();
-  targetCtx.lineWidth = width;
-  targetCtx.strokeStyle = hexToRgba(color, opacity);
-  targetCtx.fillStyle = hexToRgba(color, labelOpacity);
-  targetCtx.font = '10px monospace';
-  targetCtx.shadowBlur = 0;
-
-  if (getMapProjectionMode() === 'globe') {
-    const lonDrawStep = Math.max(2, Math.min(8, Math.round(lngStep * 0.4)));
-    for (let lng = -180; lng <= 180 + 1e-6; lng += lngStep) {
-      let started = false;
-      targetCtx.beginPath();
-      for (let lat = -85; lat <= 85 + 1e-6; lat += 2.5) {
-        const w = geoToCameraWorld(lat, lng, 0);
-        const p = projectWithDepth(w.x, w.y, w.z, cam);
-        const frontFacing = p.depth <= 0;
-        if (!frontFacing) {
-          if (started) {
-            targetCtx.stroke();
-            targetCtx.beginPath();
-            started = false;
-          }
-          continue;
-        }
-        if (!started) {
-          targetCtx.moveTo(p.x, p.y);
-          started = true;
-        } else {
-          targetCtx.lineTo(p.x, p.y);
-        }
-      }
-      if (started) targetCtx.stroke();
-    }
-    for (let lat = -85; lat <= 85 + 1e-6; lat += latStep) {
-      let started = false;
-      targetCtx.beginPath();
-      for (let lng = -180; lng <= 180 + 1e-6; lng += lonDrawStep) {
-        const w = geoToCameraWorld(lat, lng, 0);
-        const p = projectWithDepth(w.x, w.y, w.z, cam);
-        const frontFacing = p.depth <= 0;
-        if (!frontFacing) {
-          if (started) {
-            targetCtx.stroke();
-            targetCtx.beginPath();
-            started = false;
-          }
-          continue;
-        }
-        if (!started) {
-          targetCtx.moveTo(p.x, p.y);
-          started = true;
-        } else {
-          targetCtx.lineTo(p.x, p.y);
-        }
-      }
-      if (started) targetCtx.stroke();
-    }
-    targetCtx.restore();
-    return;
-  }
-
-  const half = Math.max(state.geoWindow.spanDeg * 0.5, 1e-6);
-  const b = {
-    minLat: state.geoWindow.centerLat - half,
-    maxLat: state.geoWindow.centerLat + half,
-    minLng: state.geoWindow.centerLng - half,
-    maxLng: state.geoWindow.centerLng + half
-  };
-  const lngStart = Math.ceil(b.minLng / lngStep) * lngStep;
-  for (let lng = lngStart; lng <= b.maxLng; lng += lngStep) {
-    const a = geoToCameraWorld(b.minLat, lng, 0);
-    const z = geoToCameraWorld(b.maxLat, lng, 0);
-    const p0 = project(a.x, a.y, a.z, cam);
-    const p1 = project(z.x, z.y, z.z, cam);
-    targetCtx.beginPath();
-    targetCtx.moveTo(p0.x, p0.y);
-    targetCtx.lineTo(p1.x, p1.y);
-    targetCtx.stroke();
-    if (!interactionLod) targetCtx.fillText(`${lng.toFixed(lngDigits)}`, p0.x + 3, p0.y - 2);
-  }
-
-  const latStart = Math.ceil(b.minLat / latStep) * latStep;
-  for (let lat = latStart; lat <= b.maxLat; lat += latStep) {
-    const a = geoToCameraWorld(lat, b.minLng, 0);
-    const z = geoToCameraWorld(lat, b.maxLng, 0);
-    const p0 = project(a.x, a.y, a.z, cam);
-    const p1 = project(z.x, z.y, z.z, cam);
-    targetCtx.beginPath();
-    targetCtx.moveTo(p0.x, p0.y);
-    targetCtx.lineTo(p1.x, p1.y);
-    targetCtx.stroke();
-    if (!interactionLod) targetCtx.fillText(`${lat.toFixed(latDigits)}`, p1.x + 3, p1.y - 2);
-  }
-  targetCtx.restore();
 }
 
 function getTopographyBounds() {
@@ -2504,6 +2826,49 @@ function resetTopographyWireGeometry() {
   };
 }
 
+({
+  syncTopographyQualityFromControls,
+  applyTopographyQualityPreset,
+  buildTopographyCacheKey,
+  isValidTopographyPayload,
+  applyTopographyPayload,
+  loadTopographyFromOpenData,
+  clearTopography
+} = (() => {
+  if (!window.TrekulateTopography?.create) {
+    throw new Error('Trekulate topography module failed to initialize.');
+  }
+  return window.TrekulateTopography.create({
+    state,
+    ui,
+    constants: {
+      TOPO_QUALITY_PRESETS,
+      topographyCachePrefix
+    },
+    deps: {
+      resolveTopographyQuality,
+      normalizeCountryKey,
+      resetTopographyContourGeometry,
+      resetTopographyWireGeometry,
+      markStaticDirty,
+      updateTopographyScaleUI,
+      updateRawView,
+      updateDebugView,
+      requestRender,
+      syncActionAvailability,
+      getTopographyBounds,
+      ensureNetworkContext,
+      setButtonBusy,
+      clamp,
+      makeGridAxis,
+      idbGet,
+      idbSet,
+      setTopoStatus,
+      toast
+    }
+  });
+})());
+
 function getOutlineClipPolygons() {
   return splitOutlineSegments(state.countryOutline)
     .map(seg => seg.filter(isValidGeoPoint))
@@ -2524,352 +2889,8 @@ function getTopographyClipSignature(polygons) {
   ].join('|');
 }
 
-function syncTopographyQualityFromControls() {
-  if (!ui.topoQuality || !ui.topoResolution || !ui.topoContours) return;
-  const quality = resolveTopographyQuality(ui.topoResolution.value, ui.topoContours.value);
-  ui.topoQuality.value = quality;
-  state.topography.quality = quality;
-  updateRawView();
-  updateDebugView();
-}
-
-function applyTopographyQualityPreset(quality) {
-  const key = String(quality || '').toLowerCase();
-  if (!ui.topoResolution || !ui.topoContours) return;
-  const preset = TOPO_QUALITY_PRESETS[key];
-  if (!preset) {
-    syncTopographyQualityFromControls();
-    return;
-  }
-  ui.topoResolution.value = String(preset.resolution);
-  ui.topoContours.value = String(preset.contours);
-  state.topography.contourCount = preset.contours;
-  state.topography.quality = key;
-  markStaticDirty();
-  updateRawView();
-  updateDebugView();
-  requestRender();
-}
-
-function normalizeTopographyCacheCountryKey() {
-  return state.currentCountryKey || normalizeCountryKey(ui.countryName?.value || '') || 'unscoped';
-}
-
-function buildTopographyCacheKey(bbox, rows, cols) {
-  const country = normalizeTopographyCacheCountryKey();
-  const fmt = (v) => Number(v).toFixed(3);
-  return [
-    topographyCachePrefix,
-    country,
-    String(rows),
-    String(cols),
-    fmt(bbox.minLat),
-    fmt(bbox.maxLat),
-    fmt(bbox.minLng),
-    fmt(bbox.maxLng)
-  ].join('|');
-}
-
-function isValidTopographyPayload(payload) {
-  if (!payload || !Array.isArray(payload.values)) return false;
-  if (!Number.isFinite(payload.rows) || !Number.isFinite(payload.cols)) return false;
-  if (payload.rows < 2 || payload.cols < 2) return false;
-  if (!Array.isArray(payload.latList) || !Array.isArray(payload.lngList)) return false;
-  return true;
-}
-
-function applyTopographyPayload(payload, options = {}) {
-  const {
-    mode,
-    contourCount,
-    quality = '',
-    cacheKey = '',
-    cacheState = 'none',
-    sourceOverride = ''
-  } = options;
-  if (!isValidTopographyPayload(payload)) return false;
-  const resolvedQuality = quality || resolveTopographyQuality(payload.rows, contourCount);
-  const nextContourCount = Number.isFinite(contourCount) ? contourCount : state.topography.contourCount;
-  state.topography = {
-    ...state.topography,
-    loaded: true,
-    values: payload.values,
-    rows: Number(payload.rows),
-    cols: Number(payload.cols),
-    latList: payload.latList,
-    lngList: payload.lngList,
-    min: Number(payload.min),
-    max: Number(payload.max),
-    quality: resolvedQuality,
-    mode: mode || state.topography.mode,
-    contourCount: nextContourCount,
-    source: sourceOverride || String(payload.source || state.topography.source),
-    cacheKey: cacheKey || String(payload.cacheKey || ''),
-    cacheState
-  };
-  resetTopographyContourGeometry();
-  resetTopographyWireGeometry();
-  markStaticDirty();
-  if (ui.topoQuality) ui.topoQuality.value = resolvedQuality;
-  updateRawView();
-  updateDebugView();
-  requestRender();
-  syncActionAvailability();
-  return true;
-}
-
-async function fetchWithTimeout(url, options = {}, timeoutMs = 18000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { ...options, signal: ctrl.signal });
-    return res;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function fetchElevationBatch(locations, dataset = 'aster30m', retries = 2) {
-  const encoded = encodeURIComponent(locations.join('|'));
-  const topodataUrl = `https://api.opentopodata.org/v1/${dataset}?locations=${encoded}`;
-  const openElevationUrl = `https://api.open-elevation.com/api/v1/lookup?locations=${encoded}`;
-  let lastErr = null;
-
-  // Provider 1: OpenTopoData
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetchWithTimeout(topodataUrl, {}, 18000);
-      if (!res.ok) throw new Error(`OpenTopoData HTTP ${res.status}`);
-      const data = await res.json();
-      if (!Array.isArray(data?.results)) throw new Error('OpenTopoData invalid elevation response.');
-      return {
-        values: data.results.map(r => {
-          const v = Number(r.elevation);
-          return Number.isFinite(v) ? v : 0;
-        }),
-        provider: 'opentopodata'
-      };
-    } catch (err) {
-      lastErr = err;
-      if (attempt < retries) await new Promise(r => setTimeout(r, 350 * (attempt + 1)));
-    }
-  }
-
-  // Provider 2: Open-Elevation fallback
-  try {
-    const res = await fetchWithTimeout(openElevationUrl, {}, 18000);
-    if (!res.ok) throw new Error(`Open-Elevation HTTP ${res.status}`);
-    const data = await res.json();
-    if (!Array.isArray(data?.results)) throw new Error('Open-Elevation invalid elevation response.');
-    return {
-      values: data.results.map(r => {
-        const v = Number(r.elevation);
-        return Number.isFinite(v) ? v : 0;
-      }),
-      provider: 'open-elevation'
-    };
-  } catch (err) {
-    const primary = lastErr?.message ? String(lastErr.message) : 'unknown error';
-    const fallback = err?.message ? String(err.message) : 'unknown error';
-    throw new Error(`Elevation providers failed. OpenTopoData: ${primary}. Open-Elevation: ${fallback}.`);
-  }
-}
-
-async function loadTopographyFromOpenData(options = {}) {
-  const { forceRefresh = false } = options;
-  if (!ensureNetworkContext('topography import')) return;
-  const busyBtn = forceRefresh ? ui.refreshTopography : ui.loadTopography;
-  setButtonBusy(busyBtn, true, forceRefresh ? 'Refreshing...' : 'Loading...');
-  const bbox = getTopographyBounds();
-  if (!bbox) {
-    setTopoStatus('Load a country outline or pins first.');
-    toast('Need country or pins for topography bounds', 'warn');
-    setButtonBusy(busyBtn, false);
-    return;
-  }
-  const quality = ui.topoQuality?.value || 'custom';
-  let res = Number(ui.topoResolution?.value || 24);
-  let contourCount = Number(ui.topoContours?.value || 10);
-  const preset = TOPO_QUALITY_PRESETS[quality];
-  if (preset) {
-    res = preset.resolution;
-    contourCount = preset.contours;
-    if (ui.topoResolution) ui.topoResolution.value = String(res);
-    if (ui.topoContours) ui.topoContours.value = String(contourCount);
-  }
-  const mode = ui.topoMode?.value || 'contour2d';
-  // Keep import responsive and avoid browser/network overload.
-  const maxPoints = 3600;
-  const targetRes = clamp(Number.isFinite(res) ? res : 24, 8, 84);
-  let rows = Math.max(8, Math.round(targetRes));
-  let cols = Math.max(8, Math.round(targetRes));
-  if (rows * cols > maxPoints) {
-    const scale = Math.sqrt(maxPoints / (rows * cols));
-    rows = Math.max(8, Math.floor(rows * scale));
-    cols = Math.max(8, Math.floor(cols * scale));
-  }
-  const cacheKey = buildTopographyCacheKey(bbox, rows, cols);
-
-  if (!forceRefresh) {
-    try {
-      const cached = await idbGet(cacheKey);
-      if (isValidTopographyPayload(cached)) {
-        applyTopographyPayload(cached, {
-          mode,
-          contourCount,
-          quality: preset ? quality : resolveTopographyQuality(rows, contourCount),
-          cacheKey,
-          cacheState: 'hit',
-          sourceOverride: `${cached.source || 'cache'}/cached`
-        });
-        setTopoStatus(`Topography loaded from cache (${state.topography.quality}). ${rows}x${cols}, ${Number(cached.min).toFixed(0)}m to ${Number(cached.max).toFixed(0)}m.`);
-        toast('Topography cache hit', 'ok', 1200);
-        setButtonBusy(busyBtn, false);
-        return;
-      }
-    } catch (err) {
-      console.warn('Topography cache read failed:', err);
-    }
-  }
-
-  const latList = makeGridAxis(bbox.minLat, bbox.maxLat, rows, true);
-  const lngList = makeGridAxis(bbox.minLng, bbox.maxLng, cols, false);
-  const queries = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      queries.push(`${latList[r].toFixed(6)},${lngList[c].toFixed(6)}`);
-    }
-  }
-
-  try {
-    const datasets = ['aster30m', 'srtm90m'];
-    const batchSize = 65;
-    let valuesFlat = null;
-    let sourceDataset = '';
-    let sourceProvider = '';
-    let lastErr = null;
-
-    for (const dataset of datasets) {
-      try {
-        const out = [];
-        setTopoStatus(`Fetching topography ${rows}x${cols} (${dataset})...`);
-        for (let i = 0; i < queries.length; i += batchSize) {
-          const batch = queries.slice(i, i + batchSize);
-          const result = await fetchElevationBatch(batch, dataset, 2);
-          out.push(...result.values);
-          sourceProvider = result.provider || sourceProvider;
-          const pct = (Math.min(i + batchSize, queries.length) / queries.length) * 100;
-          setTopoStatus(`Topography ${dataset}/${sourceProvider || 'provider'} ${pct.toFixed(0)}%`);
-        }
-        valuesFlat = out;
-        sourceDataset = dataset;
-        break;
-      } catch (err) {
-        lastErr = err;
-      }
-    }
-
-    if (!valuesFlat || valuesFlat.length < rows * cols) {
-      throw lastErr || new Error('Topography dataset fallback exhausted.');
-    }
-
-    const values = [];
-    let k = 0;
-    let min = Infinity;
-    let max = -Infinity;
-    for (let r = 0; r < rows; r++) {
-      const row = [];
-      for (let c = 0; c < cols; c++) {
-        const v = valuesFlat[k++] ?? 0;
-        row.push(v);
-        if (v < min) min = v;
-        if (v > max) max = v;
-      }
-      values.push(row);
-    }
-    if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error('No elevation values returned.');
-
-    state.topography = {
-      ...state.topography,
-      loaded: true,
-      values,
-      rows,
-      cols,
-      latList,
-      lngList,
-      min,
-      max,
-      quality: preset ? quality : resolveTopographyQuality(rows, contourCount),
-      mode,
-      contourCount,
-      source: `${sourceProvider || 'opentopodata'}/${sourceDataset}`,
-      cacheKey,
-      cacheState: forceRefresh ? 'refresh' : 'miss'
-    };
-    try {
-      await idbSet(cacheKey, {
-        rows,
-        cols,
-        latList,
-        lngList,
-        values,
-        min,
-        max,
-        source: `${sourceProvider || 'opentopodata'}/${sourceDataset}`,
-        cacheKey,
-        savedAt: Date.now()
-      });
-    } catch (err) {
-      console.warn('Topography cache write failed:', err);
-    }
-    resetTopographyContourGeometry();
-    resetTopographyWireGeometry();
-    markStaticDirty();
-    updateRawView();
-    updateDebugView();
-    requestRender();
-    if (ui.topoQuality) ui.topoQuality.value = state.topography.quality;
-    setTopoStatus(`Topography loaded (${sourceProvider || 'opentopodata'}/${sourceDataset}, ${state.topography.quality}). ${rows}x${cols}, ${min.toFixed(0)}m to ${max.toFixed(0)}m.`);
-    toast('Topography loaded', 'ok');
-    syncActionAvailability();
-  } catch (err) {
-    console.error(err);
-    const raw = err?.message ? String(err.message) : '';
-    const netHint = /failed to fetch|network|cors|typeerror/i.test(raw)
-      ? ' Check internet connection, run via http://localhost (not file://), and retry Refresh Topography.'
-      : '';
-    const msg = raw ? `Topography fetch failed: ${raw}.${netHint}` : `Topography fetch failed.${netHint}`;
-    setTopoStatus(msg);
-    toast('Topography fetch failed', 'err');
-  } finally {
-    setButtonBusy(busyBtn, false);
-  }
-}
-
-function clearTopography() {
-  state.topography = {
-    ...state.topography,
-    loaded: false,
-    values: [],
-    rows: 0,
-    cols: 0,
-    latList: [],
-    lngList: [],
-    cacheKey: '',
-    cacheState: 'cleared'
-  };
-  resetTopographyContourGeometry();
-  resetTopographyWireGeometry();
-  markStaticDirty();
-  updateRawView();
-  updateDebugView();
-  requestRender();
-  setTopoStatus('Topography cleared.');
-  syncActionAvailability();
-}
-
 function projectTopographyPoint(point, cam, topoHeightScale, mode) {
-  const mode3d = mode === 'contour3d' || mode === 'wireframe3d';
+  const mode3d = mode === 'contour3d' || mode === 'wireframe3d' || mode === 'hybrid3d';
   if (getMapProjectionMode() === 'globe') {
     const radial = mode3d ? point.levelNorm * topoHeightScale * 0.32 : 0;
     const w = geoToCameraWorld(point.lat, point.lng, radial);
@@ -2880,376 +2901,6 @@ function projectTopographyPoint(point, cam, topoHeightScale, mode) {
   return project(w.x, y, w.z, cam);
 }
 
-function drawTopographyContours(targetCtx, cam) {
-  if (!state.layerVisible.topography) return;
-  const topo = state.topography;
-  if (!topo.loaded || topo.rows < 2 || topo.cols < 2) return;
-  const mode = topo.mode || 'contour2d';
-  const mode3d = mode === 'contour3d';
-  if (mode !== 'contour2d' && mode !== 'contour3d') return;
-  const topoColor = ui.topoColor?.value || '#8dffcf';
-  const topoOpacity = Number(ui.topoOpacity?.value || 0.68);
-  const topoLineWidth = Number(ui.topoLineWidth?.value || 1.1);
-  const topoHeightScale = Number(ui.topoHeightScale?.value || 0.26);
-  const interactionLod = isInteractionLodActive();
-  const geometry = buildTopographyContourGeometry();
-  if (!geometry.segmentCount) return;
-  const levelStride = interactionLod && geometry.levels.length > 8 ? 2 : 1;
-  let segmentStride = 1;
-  if (interactionLod) {
-    if (geometry.segmentCount > 24000) segmentStride = 5;
-    else if (geometry.segmentCount > 12000) segmentStride = 4;
-    else if (geometry.segmentCount > 6000) segmentStride = 3;
-    else if (geometry.segmentCount > 2500) segmentStride = 2;
-  } else if (geometry.segmentCount > 32000) {
-    segmentStride = 2;
-  }
-
-  targetCtx.save();
-  targetCtx.strokeStyle = hexToRgba(topoColor, topoOpacity);
-  targetCtx.lineWidth = topoLineWidth;
-  targetCtx.shadowColor = topoColor;
-  targetCtx.shadowBlur = interactionLod ? 0 : (mode3d ? 6 : 3);
-  targetCtx.globalAlpha = mode3d ? 0.9 : 0.72;
-  for (let i = 0; i < geometry.segments.length; i += segmentStride) {
-    const segment = geometry.segments[i];
-    if (segment.levelIndex % levelStride !== 0) continue;
-    const pa = projectTopographyPoint(segment.a, cam, topoHeightScale, mode);
-    const pb = projectTopographyPoint(segment.b, cam, topoHeightScale, mode);
-    if (!isProjectedSegmentRenderable(pa, pb, 28)) continue;
-    targetCtx.beginPath();
-    targetCtx.moveTo(pa.x, pa.y);
-    targetCtx.lineTo(pb.x, pb.y);
-    targetCtx.stroke();
-  }
-  targetCtx.restore();
-}
-
-function drawTopographyWireframe(targetCtx, cam) {
-  if (!state.layerVisible.topography) return;
-  const topo = state.topography;
-  if (!topo.loaded || topo.rows < 2 || topo.cols < 2) return;
-  if (topo.mode !== 'wireframe3d') return;
-  const topoColor = ui.topoColor?.value || '#8dffcf';
-  const topoOpacity = Number(ui.topoOpacity?.value || 0.68);
-  const topoLineWidth = Number(ui.topoLineWidth?.value || 1.1);
-  const topoHeightScale = Number(ui.topoHeightScale?.value || 0.26);
-  const interactionLod = isInteractionLodActive();
-  const geometry = buildTopographyWireframeGeometry();
-  if (!geometry.segmentCount) return;
-
-  let segmentStride = 1;
-  if (interactionLod) {
-    if (geometry.segmentCount > 22000) segmentStride = 6;
-    else if (geometry.segmentCount > 12000) segmentStride = 4;
-    else if (geometry.segmentCount > 6000) segmentStride = 3;
-    else if (geometry.segmentCount > 2500) segmentStride = 2;
-  } else if (geometry.segmentCount > 32000) {
-    segmentStride = 2;
-  }
-
-  targetCtx.save();
-  targetCtx.strokeStyle = hexToRgba(topoColor, topoOpacity);
-  targetCtx.lineWidth = topoLineWidth;
-  targetCtx.shadowColor = topoColor;
-  targetCtx.shadowBlur = interactionLod ? 0 : 6;
-  targetCtx.globalAlpha = 0.88;
-  for (let i = 0; i < geometry.segments.length; i += segmentStride) {
-    const segment = geometry.segments[i];
-    const pa = projectTopographyPoint(segment.a, cam, topoHeightScale, 'wireframe3d');
-    const pb = projectTopographyPoint(segment.b, cam, topoHeightScale, 'wireframe3d');
-    if (!isProjectedSegmentRenderable(pa, pb, 28)) continue;
-    targetCtx.beginPath();
-    targetCtx.moveTo(pa.x, pa.y);
-    targetCtx.lineTo(pb.x, pb.y);
-    targetCtx.stroke();
-  }
-  targetCtx.restore();
-}
-function buildAnimatedPath() {
-  const n = state.path.length;
-  if (n < 2) return [];
-  const routeProgress = getRouteProgressFromTimeline();
-  const maxSeg = (n - 1) * routeProgress;
-  const out = [];
-  for (let i = 0; i < n - 1; i++) {
-    const a = state.path[i];
-    const b = state.path[i + 1];
-    if (i + 1 <= maxSeg) {
-      out.push(a);
-      continue;
-    }
-    if (i <= maxSeg && i + 1 > maxSeg) {
-      const k = maxSeg - i;
-      out.push(a, { lat: a.lat + (b.lat - a.lat) * k, lng: a.lng + (b.lng - a.lng) * k, label: 'interp' });
-    }
-    break;
-  }
-  if (routeProgress >= 1) out.push(state.path[n - 1]);
-  return out;
-}
-
-function drawPath(cam) {
-  if (!state.layerVisible.path) return;
-  const interactionLod = isInteractionLodActive();
-  const pts = buildAnimatedPath();
-  if (!pts.length) return;
-  const c = ui.pathColor.value;
-  const projected = pts.map(pt => {
-    const w = geoToCameraWorld(pt.lat, pt.lng, getMapProjectionMode() === 'globe' ? 0.008 : 0.01);
-    return project(w.x, w.y, w.z, cam);
-  });
-
-  ctx.save();
-  ctx.strokeStyle = c;
-  const pathOpacity = clamp(Number(ui.pathOpacity?.value || 0.82), 0.05, 1);
-  ctx.lineWidth = Number(ui.pathWidth.value);
-  ctx.shadowColor = c;
-  for (let i = 0; i < projected.length - 1; i++) {
-    const a = projected[i];
-    const b = projected[i + 1];
-    if (!isProjectedSegmentRenderable(a, b, 28)) continue;
-    const z = (a.z + b.z) * 0.5;
-    const dof = getDepthOfFieldForZ(z);
-    ctx.globalAlpha = dof.alpha * pathOpacity;
-    ctx.shadowBlur = interactionLod ? 0 : 8 + dof.blur;
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function drawPins(cam) {
-  if (!state.layerVisible.pins) return;
-  if (!state.pins.length) return;
-  const interactionLod = isInteractionLodActive();
-  const c = ui.pinColor.value;
-  const labelColor = ui.pinLabelColor?.value || c;
-  const size = Number(ui.pinSize.value);
-  const routeProgress = getRouteProgressFromTimeline();
-  const showLabels = !interactionLod && state.pins.length <= 180;
-  state.lastProjectedPins = [];
-
-  ctx.save();
-  ctx.font = "12px 'Orbitron', sans-serif";
-  ctx.fillStyle = c;
-  ctx.strokeStyle = c;
-  ctx.shadowColor = c;
-  ctx.shadowBlur = interactionLod ? 0 : 10;
-  ctx.lineWidth = 1.2;
-
-  const routeAnchors = state.timelineAnchors.length
-    ? state.timelineAnchors.map(a => a.r)
-    : state.pins.map((_, i) => (state.pins.length === 1 ? 0 : i / (state.pins.length - 1)));
-
-  state.pins.forEach((pin, i) => {
-    if (routeAnchors[i] > routeProgress + 1e-6) return;
-    const globeMode = getMapProjectionMode() === 'globe';
-    const baseW = geoToCameraWorld(pin.lat, pin.lng, 0);
-    const tipW = geoToCameraWorld(pin.lat, pin.lng, globeMode ? 0.05 : -0.06);
-    const base = project(baseW.x, baseW.y, baseW.z, cam);
-    const top = project(tipW.x, tipW.y, tipW.z, cam);
-    if (!isProjectedPointRenderable(top, 40) && !isProjectedSegmentRenderable(base, top, 40)) return;
-    const dof = getDepthOfFieldForZ(top.z);
-    ctx.globalAlpha = dof.alpha;
-    ctx.shadowBlur = interactionLod ? 0 : 10 + dof.blur;
-    state.lastProjectedPins.push({ id: pin.id, x: top.x, y: top.y });
-
-    ctx.beginPath();
-    ctx.moveTo(base.x, base.y);
-    ctx.lineTo(top.x, top.y);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(top.x, top.y, size, 0, Math.PI * 2);
-    ctx.stroke();
-
-    if (pin.id === state.selectedPinId) {
-      ctx.beginPath();
-      ctx.arc(top.x, top.y, size + 4, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    if (showLabels || pin.id === state.selectedPinId) {
-      ctx.fillStyle = labelColor;
-      if (pin.id === state.selectedPinId || isProjectedPointRenderable(top, 72)) {
-        ctx.fillText(pin.label, top.x + size + 5, top.y - 3);
-      }
-      ctx.fillStyle = c;
-    }
-  });
-  ctx.restore();
-}
-
-function drawHUD() {
-  const interactionLod = isInteractionLodActive();
-  ui.hudPins.textContent = `Pins: ${state.pins.length}`;
-  ui.hudPath.textContent = `Path nodes: ${state.path.length}`;
-  ui.hudTime.textContent = `Timeline: ${(state.progress * 100).toFixed(1)}%`;
-  ui.hudCam.textContent = `Cam: y ${state.camera.yaw.toFixed(2)} p ${state.camera.pitch.toFixed(2)} z ${state.camera.zoom.toFixed(1)} fx ${state.camera.focusX.toFixed(2)} fz ${state.camera.focusZ.toFixed(2)}`;
-  ui.hudFps.textContent = state.playing || interactionLod ? `FPS: ${state.perf.fps.toFixed(0)}${interactionLod ? ' LOD' : ''}` : 'FPS: idle';
-}
-
-function drawCornerOrientationGlobe() {
-  const interactionLod = isInteractionLodActive();
-  const cx = 66;
-  const cy = 72;
-  const r = 34;
-  const camYaw = state.camera.yaw;
-  const camPitch = state.camera.pitch;
-  const accent = cssColorToHex(cssVar('--accent', '#7ddfff'), '#7ddfff');
-  const accent2 = cssColorToHex(cssVar('--accent-2', '#8dffcf'), '#8dffcf');
-  const muted = cssColorToHex(cssVar('--ds-text-muted', '#bdefff'), '#bdefff');
-  const panelBg = cssColorToHex(cssVar('--ds-bg-elevated', '#0a141a'), '#0a141a');
-  const panelLine = cssColorToHex(cssVar('--line', '#3a5a66'), '#3a5a66');
-  const warn = cssColorToHex(cssVar('--ds-warning', '#ffe48c'), '#ffe48c');
-
-  const projectSphere = (x, y, z) => {
-    const cyw = Math.cos(camYaw);
-    const syw = Math.sin(camYaw);
-    const ctp = Math.cos(camPitch);
-    const stp = Math.sin(camPitch);
-    const x1 = x * cyw + z * syw;
-    const z1 = -x * syw + z * cyw;
-    const y2 = y * ctp - z1 * stp;
-    const z2 = y * stp + z1 * ctp;
-    return { x: cx + x1 * r, y: cy + y2 * r, z: z2 };
-  };
-
-  const drawCurve = (pointAt) => {
-    let started = false;
-    let prevFront = false;
-    ctx.beginPath();
-    const steps = interactionLod ? 48 : 120;
-    for (let i = 0; i <= steps; i++) {
-      const t = (i / steps) * Math.PI * 2;
-      const p = pointAt(t);
-      const q = projectSphere(p.x, p.y, p.z);
-      const front = q.z >= 0;
-      if (!started || front !== prevFront) {
-        if (started) ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(q.x, q.y);
-        started = true;
-      } else {
-        ctx.lineTo(q.x, q.y);
-      }
-      prevFront = front;
-      ctx.strokeStyle = front
-        ? hexToRgba(accent, 0.58)
-        : hexToRgba(accent, 0.18);
-    }
-    if (started) ctx.stroke();
-  };
-
-  ctx.save();
-  ctx.fillStyle = hexToRgba(panelBg, 0.62);
-  ctx.strokeStyle = hexToRgba(panelLine, 0.72);
-  ctx.lineWidth = 1;
-  ctx.shadowColor = hexToRgba(accent2, 0.45);
-  ctx.shadowBlur = interactionLod ? 0 : 6;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  for (const latDeg of [-60, -30, 0, 30, 60]) {
-    const lat = latDeg * Math.PI / 180;
-    const y = Math.sin(lat);
-    const s = Math.cos(lat);
-    drawCurve((t) => ({ x: Math.cos(t) * s, y, z: Math.sin(t) * s }));
-  }
-  for (let lonDeg = 0; lonDeg < 180; lonDeg += 30) {
-    const lon = lonDeg * Math.PI / 180;
-    drawCurve((t) => ({ x: Math.cos(t) * Math.cos(lon), y: Math.sin(t), z: Math.cos(t) * Math.sin(lon) }));
-  }
-
-  // Dynamic cardinal anchors that move with globe orientation.
-  const anchors = [
-    { label: 'N', v: { x: 0, y: -1, z: 0 }, color: warn },
-    { label: 'E', v: { x: 1, y: 0, z: 0 }, color: muted },
-    { label: 'S', v: { x: 0, y: 1, z: 0 }, color: muted },
-    { label: 'W', v: { x: -1, y: 0, z: 0 }, color: muted }
-  ].map(a => ({ ...a, p: projectSphere(a.v.x, a.v.y, a.v.z) }));
-
-  const north = anchors[0].p;
-  const vx = north.x - cx;
-  const vy = north.y - cy;
-  const vlen = Math.max(Math.hypot(vx, vy), 1e-6);
-  const nx = vx / vlen;
-  const ny = vy / vlen;
-  const ax = cx + nx * (r - 7);
-  const ay = cy + ny * (r - 7);
-  ctx.strokeStyle = hexToRgba(warn, 0.95);
-  ctx.fillStyle = hexToRgba(warn, 0.95);
-  ctx.shadowColor = hexToRgba(warn, 0.68);
-  ctx.shadowBlur = interactionLod ? 0 : 5;
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(ax, ay);
-  ctx.stroke();
-  const lx = -ny;
-  const ly = nx;
-  ctx.beginPath();
-  ctx.moveTo(ax, ay);
-  ctx.lineTo(ax - nx * 8 + lx * 4, ay - ny * 8 + ly * 4);
-  ctx.lineTo(ax - nx * 8 - lx * 4, ay - ny * 8 - ly * 4);
-  ctx.closePath();
-  ctx.fill();
-
-  // Pole markers improve orientation readability.
-  const south = anchors[2].p;
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = hexToRgba(warn, 0.9);
-  ctx.beginPath();
-  ctx.arc(north.x, north.y, 2.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = hexToRgba(accent2, 0.85);
-  ctx.beginPath();
-  ctx.arc(south.x, south.y, 1.9, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.shadowBlur = 0;
-  if (!interactionLod) {
-    ctx.font = '10px monospace';
-    for (const a of anchors) {
-      const dx = a.p.x - cx;
-      const dy = a.p.y - cy;
-      const len = Math.max(Math.hypot(dx, dy), 1e-6);
-      const tx = a.p.x + (dx / len) * 9 - 3;
-      const ty = a.p.y + (dy / len) * 9 + 3;
-      ctx.fillStyle = hexToRgba(a.color, a.label === 'N' ? 0.98 : 0.88);
-      ctx.fillText(a.label, tx, ty);
-    }
-  }
-  ctx.restore();
-}
-
-function drawCameraFocusMarker(cam) {
-  const interactionLod = isInteractionLodActive();
-  const p = project(0, 0, 0, cam);
-  const size = 8;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255, 210, 120, 0.9)';
-  ctx.lineWidth = 1.2;
-  ctx.shadowColor = 'rgba(255, 210, 120, 0.7)';
-  ctx.shadowBlur = interactionLod ? 0 : 6;
-  ctx.beginPath();
-  ctx.moveTo(p.x - size, p.y);
-  ctx.lineTo(p.x + size, p.y);
-  ctx.moveTo(p.x, p.y - size);
-  ctx.lineTo(p.x, p.y + size);
-  ctx.stroke();
-  if (!interactionLod) {
-    ctx.font = '10px monospace';
-    ctx.fillStyle = 'rgba(255, 230, 170, 0.95)';
-    ctx.fillText('FOCUS', p.x + size + 4, p.y - size - 2);
-  }
-  ctx.restore();
-}
-
 function refreshPinList() {
   if (!ui.pinTableBody) return;
   ui.pinTableBody.innerHTML = '';
@@ -3258,7 +2909,7 @@ function refreshPinList() {
     ui.pinLabel.value = '';
     ui.pinTimestamp.value = '';
     ui.pinNote.value = '';
-    ui.pinSource.value = '';
+    ui.pinSource.textContent = '';
     ui.savePinMeta.disabled = true;
     ui.cancelPinMeta.disabled = true;
     ui.deletePin.disabled = true;
@@ -3363,6 +3014,7 @@ function saveMetadataFromEditor() {
   refreshPinList();
   updateRawView();
   rebuildTimelineAnchors();
+  markJourneyDirty(true);
   toast(`Saved ${pin.label}`, 'ok');
   setStatus(`Saved metadata for ${pin.label}.`);
   requestRender();
@@ -3382,13 +3034,14 @@ function cancelMetadataChanges() {
 function deleteSelectedPin() {
   const pin = getSelectedPin();
   if (!pin) return;
-  if (ui.confirmDeleteDialog?.showModal) {
-    ui.confirmDeleteDialog.showModal();
-    return;
-  }
-  if (confirm(`Delete ${pin.label}?`)) {
-    confirmDeletePin();
-  }
+  confirmAction({
+    title: 'Delete Pin?',
+    message: `This removes "${pin.label}" from the current journey.`,
+    confirmLabel: 'Delete Pin',
+    danger: true
+  }).then((ok) => {
+    if (ok) confirmDeletePin();
+  });
 }
 
 function confirmDeletePin() {
@@ -3401,6 +3054,7 @@ function confirmDeletePin() {
   refreshPinList();
   rebuildTimelineAnchors();
   updateRawView();
+  markJourneyDirty(true);
   toast(`Deleted ${pin.label}`, 'warn');
   requestRender();
 }
@@ -3460,7 +3114,8 @@ async function loadPinsFromUI(options = {}) {
 
   if (!added.length) {
     const failHint = failed.length ? ` First issue: ${failed[0].reason}` : '';
-    setStatus(`No valid pin rows found.${failHint}`);
+    setPinImportStatus(`No valid pin rows found.${failHint}`, 'error');
+    setStatus(`No valid pin rows found.${failHint}`, 'Pins', 'error');
     if (!silent) toast('No valid pins parsed', 'err');
     syncActionAvailability();
     return;
@@ -3482,10 +3137,13 @@ async function loadPinsFromUI(options = {}) {
     if (failed.length) toast(`${failed.length} row(s) could not be parsed`, 'warn');
   }
   if (failed.length) {
-    setStatus(`Added ${added.length} pin(s). ${failed.length} row(s) failed. First issue: ${failed[0].reason}`);
+    setPinImportStatus(`Added ${added.length} pin(s). ${failed.length} row(s) failed. First issue: ${failed[0].reason}`, 'warn');
+    setStatus(`Added ${added.length} pin(s). ${failed.length} row(s) failed.`, 'Pins', 'warn');
   } else {
-    setStatus(`Added ${added.length} pin(s).`);
+    setPinImportStatus(`Added ${added.length} pin(s).`, 'success');
+    setStatus(`Added ${added.length} pin(s).`, 'Pins', 'success');
   }
+  markJourneyDirty(true);
   syncActionAvailability();
   requestRender();
 }
@@ -3537,6 +3195,7 @@ async function fetchRouteFromOSRM() {
     setStatus(`Loaded route with ${state.path.length} path nodes.`);
     toast('Route updated', 'ok');
     updateRawView();
+    markJourneyDirty(true);
     requestRender();
   } catch (err) {
     console.error(err);
@@ -3546,6 +3205,7 @@ async function fetchRouteFromOSRM() {
     updateBounds({ preserveGeoWindow: true });
     rebuildTimelineAnchors();
     updateRawView();
+    markJourneyDirty(true);
     requestRender();
   } finally {
     setButtonBusy(ui.sampleRoute, false);
@@ -3647,9 +3307,11 @@ async function fetchCountryOutline(name, options = {}) {
   }
 }
 function getStaticLayerKey() {
+  const staticScale = getStaticLayerScale();
   return [
     state.dims.w,
     state.dims.h,
+    staticScale.toFixed(2),
     state.camera.yaw.toFixed(3),
     state.camera.pitch.toFixed(3),
     state.camera.zoom.toFixed(2),
@@ -3703,17 +3365,22 @@ function getStaticLayerKey() {
     state.geoWindow.centerLat.toFixed(4),
     state.geoWindow.centerLng.toFixed(4),
     state.geoWindow.spanDeg.toFixed(4),
-    state.geoWindow.fineScale.toFixed(4)
+    state.geoWindow.fineScale.toFixed(4),
+    state.performanceMode ? 1 : 0
   ].join('|');
 }
 
 function rebuildStaticLayer(cam) {
   const layer = state.staticLayer;
-  layer.canvas.width = Math.max(1, Math.floor(state.dims.w));
-  layer.canvas.height = Math.max(1, Math.floor(state.dims.h));
+  const staticScale = getStaticLayerScale();
+  const drawW = Math.max(1, Math.floor(state.dims.w * staticScale));
+  const drawH = Math.max(1, Math.floor(state.dims.h * staticScale));
+  layer.canvas.width = drawW;
+  layer.canvas.height = drawH;
   const lctx = layer.ctx;
   lctx.setTransform(1, 0, 0, 1, 0, 0);
-  lctx.clearRect(0, 0, state.dims.w, state.dims.h);
+  lctx.clearRect(0, 0, drawW, drawH);
+  if (staticScale !== 1) lctx.scale(staticScale, staticScale);
 
   lctx.fillStyle = ensureScanlinePattern() || cssVar('--tk-scanline', 'rgba(95, 215, 245, 0.04)');
   lctx.fillRect(0, 0, state.dims.w, state.dims.h);
@@ -3723,6 +3390,7 @@ function rebuildStaticLayer(cam) {
   drawTopographyWireframe(lctx, cam);
   drawWorldContextOutline(lctx, cam);
   drawCountryOutline(lctx, cam);
+  state.perf.staticScale = staticScale;
 }
 
 function markStaticDirty() {
@@ -3736,6 +3404,7 @@ function requestRender() {
 }
 
 function render(now = 0) {
+  const frameStart = performance.now();
   state.renderQueued = false;
   const interactionLod = isInteractionLodActive(now);
   const dt = Math.min(0.045, (now - state.lastFrame) / 1000 || 0);
@@ -3754,7 +3423,9 @@ function render(now = 0) {
   const cam = getCameraCache();
   const key = getStaticLayerKey();
   if (state.staticDirty || key !== state.staticLayer.key) {
+    const staticStart = performance.now();
     rebuildStaticLayer(cam);
+    state.perf.staticMs = performance.now() - staticStart;
     state.staticLayer.key = key;
     state.staticDirty = false;
   }
@@ -3780,10 +3451,11 @@ function render(now = 0) {
     }
     requestRender();
   }
+  state.perf.frameMs = performance.now() - frameStart;
 }
 
 function resize() {
-  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const ratio = Math.min(window.devicePixelRatio || 1, state.performanceMode ? 1 : 2);
   const rect = canvas.getBoundingClientRect();
   canvas.width = Math.max(1, Math.floor(rect.width * ratio));
   canvas.height = Math.max(1, Math.floor(rect.height * ratio));
@@ -3794,134 +3466,39 @@ function resize() {
   requestRender();
 }
 
-function syncCameraToUI() {
-  if (ui.cameraYaw) ui.cameraYaw.value = String(state.camera.yaw);
-  if (ui.cameraPitch) ui.cameraPitch.value = String(state.camera.pitch);
-  if (ui.cameraZoom) ui.cameraZoom.value = String(state.camera.zoom);
-  if (ui.cameraPanX) ui.cameraPanX.value = String(state.camera.focusX);
-  if (ui.cameraPanZ) ui.cameraPanZ.value = String(state.camera.focusZ);
-  if (ui.cameraPedestal) ui.cameraPedestal.value = String(state.camera.focusY);
-  if (ui.cameraRoll) ui.cameraRoll.value = String(state.camera.roll);
-  if (ui.cameraFocal) ui.cameraFocal.value = String(state.camera.focalLength);
-  if (ui.cameraLens) ui.cameraLens.value = String(state.camera.lensAngle);
-  if (ui.cameraFocusDepth) ui.cameraFocusDepth.value = String(state.camera.focusDepth);
-  if (ui.cameraDof) ui.cameraDof.value = String(state.camera.dofStrength);
-}
-
-function setCameraState(patch = {}, options = {}) {
-  const { skipRender = false, syncUI = true } = options;
-  const yaw = patch.yaw ?? state.camera.yaw;
-  state.camera.yaw = Number.isFinite(yaw) ? yaw : state.camera.yaw;
-  const pitch = patch.pitch ?? state.camera.pitch;
-  state.camera.pitch = Number.isFinite(pitch) ? pitch : state.camera.pitch;
-  state.camera.zoom = clamp(patch.zoom ?? state.camera.zoom, 0.35, 16);
-  state.camera.focusX = clamp(patch.focusX ?? patch.panX ?? state.camera.focusX, -8, 8);
-  state.camera.focusZ = clamp(patch.focusZ ?? patch.panZ ?? state.camera.focusZ, -8, 8);
-  state.camera.focusY = clamp(patch.focusY ?? patch.pedestal ?? state.camera.focusY, -1.2, 1.2);
-  state.camera.roll = clamp(patch.roll ?? state.camera.roll, -3.14, 3.14);
-  state.camera.focalLength = clamp(patch.focalLength ?? state.camera.focalLength, 18, 120);
-  state.camera.lensAngle = clamp(patch.lensAngle ?? state.camera.lensAngle, 22, 95);
-  state.camera.focusDepth = clamp(patch.focusDepth ?? state.camera.focusDepth, 0.35, 18);
-  state.camera.dofStrength = clamp(patch.dofStrength ?? state.camera.dofStrength, 0, 1.4);
-  if (syncUI) syncCameraToUI();
-  markStaticDirty();
-  refreshDebugIfVisible();
-  if (!skipRender) requestRender();
-}
-
-function setCamera(yaw, pitch, zoom, options = {}) {
-  setCameraState({ yaw, pitch, zoom }, options);
-}
-
-function setCameraPreset(name) {
-  const presets = {
-    // True isometric-ish angle.
-    iso: { yaw: -Math.PI / 4, pitch: 0.62, roll: 0, zoom: 3.8 },
-    // Exact orthographic-like poles for clear top/bottom reads.
-    top: { yaw: 0, pitch: Math.PI / 2, roll: 0, zoom: 3.6 },
-    bottom: { yaw: 0, pitch: -Math.PI / 2, roll: 0, zoom: 3.6 },
-    left: { yaw: -Math.PI / 2, pitch: 0.93, roll: 0, zoom: 3.4 },
-    right: { yaw: Math.PI / 2, pitch: 0.93, roll: 0, zoom: 3.4 },
-    front: { yaw: 0, pitch: 0.93, roll: 0, zoom: 3.4 },
-    back: { yaw: Math.PI, pitch: 0.93, roll: 0, zoom: 3.4 },
-    home: { ...CAMERA_DEFAULT }
-  };
-  const next = presets[name];
-  if (!next) return;
-  setCameraState(next);
-}
-
-function homeView() {
-  // Start from a framed zoom, then apply a mild cinematic angle.
-  fitMapToFrame();
-  const pitch = getMapProjectionMode() === 'globe' ? -0.28 : 0.48;
-  setCameraState({
-    yaw: -0.52,
-    pitch,
-    roll: 0,
-    focusX: 0,
-    focusZ: 0
-  });
-}
-
-function collectFrameWorldPoints(limit = 220) {
-  const source = [...state.pins, ...state.path, ...state.countryOutline].filter(isValidGeoPoint);
-  if (!source.length) {
-    return [
-      { x: -1, y: 0, z: -1 },
-      { x: 1, y: 0, z: -1 },
-      { x: -1, y: 0, z: 1 },
-      { x: 1, y: 0, z: 1 }
-    ];
-  }
-  const step = Math.max(1, Math.ceil(source.length / limit));
-  const points = [];
-  for (let i = 0; i < source.length; i += step) {
-    points.push(mapToScene(source[i].lat, source[i].lng, 0));
-  }
-  return points;
-}
-
-function fitMapToFrame() {
-  const points = collectFrameWorldPoints();
-  const test = (zoom) => {
-    const cam = getCameraCache({ ...state.camera, zoom, focusX: 0, focusZ: 0 });
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (const w of points) {
-      const p = project(w.x, w.y ?? 0, w.z, cam);
-      if (p.x < minX) minX = p.x;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
-    }
-    return { width: maxX - minX, height: maxY - minY };
-  };
-
-  let lo = 0.35;
-  let hi = 16;
-  for (let i = 0; i < 14; i++) {
-    const mid = (lo + hi) * 0.5;
-    const frame = test(mid);
-    const fits = frame.width <= state.dims.w * 0.82 && frame.height <= state.dims.h * 0.74;
-    if (fits) hi = mid;
-    else lo = mid;
-  }
-  setCameraState({ focusX: 0, focusZ: 0, zoom: hi });
-}
-
-function nudgeGeoWindow(dLat, dLng) {
-  const step = Math.max(0.01, state.geoWindow.spanDeg * 0.08);
-  setGeoWindow({
-    centerLat: state.geoWindow.centerLat + dLat * step,
-    centerLng: state.geoWindow.centerLng + dLng * step
-  }, { manual: true });
-}
-
 ui.loadPins.addEventListener('click', loadPinsFromUI);
 ui.pinData?.addEventListener('input', syncActionAvailability);
+ui.headerJourneyBtn?.addEventListener('click', openJourneyDialog);
+ui.closeJourneyDialogBtn?.addEventListener('click', closeJourneyDialog);
+ui.openCreateJourney?.addEventListener('click', showJourneyCreateComposer);
+ui.cancelCreateJourney?.addEventListener('click', hideJourneyCreateComposer);
+ui.confirmCreateJourney?.addEventListener('click', confirmCreateJourney);
+ui.journeyName?.addEventListener('input', syncJourneyUI);
+ui.saveJourneyNow?.addEventListener('click', () => {
+  if (!state.currentJourneyId) return;
+  saveCurrentJourney({ silent: false });
+});
+ui.exportJourney?.addEventListener('click', exportCurrentJourneyToFile);
+ui.importJourney?.addEventListener('click', () => {
+  if (state.journeyDirty && state.currentJourneyId) saveCurrentJourney({ silent: true });
+  if (state.journeyDirty && !state.currentJourneyId) {
+    confirmAction({
+      title: 'Discard Unsaved Trek?',
+      message: 'Importing a trek file will discard the current unsaved workspace.',
+      confirmLabel: 'Discard And Import',
+      danger: true
+    }).then((ok) => {
+      if (!ok) return;
+      ui.importJourneyFile?.click();
+    });
+    return;
+  }
+  ui.importJourneyFile?.click();
+});
+ui.importJourneyFile?.addEventListener('change', () => {
+  const file = ui.importJourneyFile?.files?.[0];
+  if (file) importJourneyFromFile(file);
+});
 ui.parsePreview.addEventListener('click', () => {
   const lines = ui.pinData.value
     .split('\n')
@@ -3933,12 +3510,14 @@ ui.parsePreview.addEventListener('click', () => {
   let msg = `Preview: ${parsed.pins.length} directly valid, ${parsed.errors.length} unresolved.`;
   if (addrCandidates) msg += ` ${addrCandidates} address row(s) resolve on Add Pins.`;
   if (shortCandidates) msg += ` ${shortCandidates} short-link row(s) attempt expansion on Add Pins.`;
-  setStatus(msg);
+  setPinImportStatus(msg, parsed.errors.length ? 'warn' : 'success');
+  setStatus(msg, 'Pins', parsed.errors.length ? 'warn' : 'success');
   toast(`Preview ${parsed.pins.length} direct / ${parsed.errors.length} unresolved`, parsed.errors.length ? 'warn' : 'ok');
 });
 ui.clearInput.addEventListener('click', () => {
   ui.pinData.value = '';
-  setStatus('Input cleared.');
+  setPinImportStatus('Input cleared.', 'info');
+  setStatus('Input cleared.', 'Pins', 'info');
 });
 ui.sampleRoute.addEventListener('click', fetchRouteFromOSRM);
 ui.clearRoute.addEventListener('click', () => {
@@ -3960,6 +3539,7 @@ ui.clearRoute.addEventListener('click', () => {
   updateBounds();
   rebuildTimelineAnchors();
   updateRawView();
+  markJourneyDirty(true);
   syncActionAvailability();
   requestRender();
 });
@@ -4009,7 +3589,10 @@ ui.outlineSegmentSelect?.addEventListener('change', () => {
   state.selectedOutlineSegmentIndex = Number(ui.outlineSegmentSelect.value || 0);
   updateDebugView();
 });
-ui.centerOutlineSegment?.addEventListener('click', centerOnSelectedOutlineSegment);
+ui.centerOutlineSegment?.addEventListener('click', () => {
+  centerOnSelectedOutlineSegment();
+  markJourneyDirty(true);
+});
 ui.terrainPattern?.addEventListener('change', () => {
   markStaticDirty();
   requestRender();
@@ -4059,15 +3642,28 @@ ui.mapProjectionGlobe?.addEventListener('click', () => {
   ui.mapProjection.dispatchEvent(new Event('change'));
 });
 
-ui.geoNudgeN?.addEventListener('click', () => nudgeGeoWindow(1, 0));
-ui.geoNudgeS?.addEventListener('click', () => nudgeGeoWindow(-1, 0));
-ui.geoNudgeE?.addEventListener('click', () => nudgeGeoWindow(0, 1));
-ui.geoNudgeW?.addEventListener('click', () => nudgeGeoWindow(0, -1));
+ui.geoNudgeN?.addEventListener('click', () => {
+  nudgeGeoWindow(1, 0);
+  markJourneyDirty(true);
+});
+ui.geoNudgeS?.addEventListener('click', () => {
+  nudgeGeoWindow(-1, 0);
+  markJourneyDirty(true);
+});
+ui.geoNudgeE?.addEventListener('click', () => {
+  nudgeGeoWindow(0, 1);
+  markJourneyDirty(true);
+});
+ui.geoNudgeW?.addEventListener('click', () => {
+  nudgeGeoWindow(0, -1);
+  markJourneyDirty(true);
+});
 ui.fitGeoWindow?.addEventListener('click', () => {
   state.geoWindow.manual = false;
   fitGeoWindowToBounds();
   markStaticDirty();
   updateDebugView();
+  markJourneyDirty(true);
   requestRender();
 });
 ui.geoLatStep?.addEventListener('input', () => {
@@ -4097,6 +3693,18 @@ ui.visWorldContext?.addEventListener('click', () => setLayerVisibility('worldCon
 ui.visGeoGrid?.addEventListener('click', () => setLayerVisibility('geoGrid', !state.layerVisible.geoGrid));
 ui.visTopography?.addEventListener('click', () => setLayerVisibility('topography', !state.layerVisible.topography));
 ui.visSeaLevel?.addEventListener('click', () => setLayerVisibility('seaLevel', !state.layerVisible.seaLevel));
+ui.quickVisPins?.addEventListener('click', () => setLayerVisibility('pins', !state.layerVisible.pins));
+ui.quickVisPath?.addEventListener('click', () => setLayerVisibility('path', !state.layerVisible.path));
+ui.quickVisOutline?.addEventListener('click', () => setLayerVisibility('outline', !state.layerVisible.outline));
+ui.quickVisWorldContext?.addEventListener('click', () => setLayerVisibility('worldContext', !state.layerVisible.worldContext));
+ui.quickVisGeoGrid?.addEventListener('click', () => setLayerVisibility('geoGrid', !state.layerVisible.geoGrid));
+ui.quickVisTopography?.addEventListener('click', () => setLayerVisibility('topography', !state.layerVisible.topography));
+ui.quickVisSeaLevel?.addEventListener('click', () => setLayerVisibility('seaLevel', !state.layerVisible.seaLevel));
+ui.quickPerfMode?.addEventListener('click', () => setPerformanceMode(!state.performanceMode));
+ui.layoutToolbarPos?.addEventListener('change', () => setViewerLayoutPrefs({ toolbarPos: ui.layoutToolbarPos.value || 'top-center' }));
+ui.layoutHudSide?.addEventListener('change', () => setViewerLayoutPrefs({ hudSide: ui.layoutHudSide.value === 'right' ? 'right' : 'left' }));
+ui.layoutCameraSide?.addEventListener('change', () => setViewerLayoutPrefs({ cameraSide: ui.layoutCameraSide.value === 'left' ? 'left' : 'right' }));
+ui.layoutGlobeCorner?.addEventListener('change', () => setViewerLayoutPrefs({ globeCorner: ui.layoutGlobeCorner.value === 'top-left' ? 'top-left' : 'top-right' }));
 
 ui.loadTopography?.addEventListener('click', loadTopographyFromOpenData);
 ui.refreshTopography?.addEventListener('click', () => loadTopographyFromOpenData({ forceRefresh: true }));
@@ -4106,6 +3714,7 @@ ui.topoQuality?.addEventListener('change', () => {
 });
 ui.topoMode?.addEventListener('change', () => {
   state.topography.mode = ui.topoMode.value || 'contour2d';
+  updateTopographyScaleUI();
   markStaticDirty();
   updateRawView();
   updateDebugView();
@@ -4124,7 +3733,10 @@ ui.topoContours?.addEventListener('input', () => {
   requestRender();
 });
 
-ui.timelineModeBtn?.addEventListener('click', toggleTimelineMode);
+ui.timelineModeBtn?.addEventListener('click', () => {
+  toggleTimelineMode();
+  markJourneyDirty(true);
+});
 
 ui.savePinMeta.addEventListener('click', saveMetadataFromEditor);
 ui.cancelPinMeta.addEventListener('click', cancelMetadataChanges);
@@ -4132,15 +3744,11 @@ ui.deletePin.addEventListener('click', deleteSelectedPin);
 ui.refreshRaw?.addEventListener('click', updateRawView);
 ui.refreshDebug?.addEventListener('click', updateDebugView);
 
-if (ui.confirmDeleteBtn) {
-  ui.confirmDeleteBtn.addEventListener('click', () => {
-    ui.confirmDeleteDialog?.close();
-    confirmDeletePin();
-  });
-}
-if (ui.cancelDeleteBtn) {
-  ui.cancelDeleteBtn.addEventListener('click', () => ui.confirmDeleteDialog?.close());
-}
+ui.confirmDialogConfirmBtn?.addEventListener('click', () => resolveConfirmDialog(true));
+ui.confirmDialogCancelBtn?.addEventListener('click', () => resolveConfirmDialog(false));
+ui.confirmDialog?.addEventListener('close', () => {
+  if (hasPendingConfirm()) resolveConfirmDialog(false);
+});
 
 [ui.pinLabel, ui.pinTimestamp, ui.pinNote].forEach(el => {
   el.addEventListener('input', handleMetadataChange);
@@ -4180,15 +3788,33 @@ ui.cameraFocal?.addEventListener('input', () => setCameraState({ focalLength: Nu
 ui.cameraLens?.addEventListener('input', () => setCameraState({ lensAngle: Number(ui.cameraLens.value) }));
 ui.cameraFocusDepth?.addEventListener('input', () => setCameraState({ focusDepth: Number(ui.cameraFocusDepth.value) }));
 ui.cameraDof?.addEventListener('input', () => setCameraState({ dofStrength: Number(ui.cameraDof.value) }));
-ui.viewHome?.addEventListener('click', homeView);
-ui.viewFit?.addEventListener('click', fitMapToFrame);
-ui.viewIso?.addEventListener('click', () => setCameraPreset('iso'));
-ui.viewTop?.addEventListener('click', () => setCameraPreset('top'));
-ui.viewBottom?.addEventListener('click', () => setCameraPreset('bottom'));
-ui.viewLeft?.addEventListener('click', () => setCameraPreset('left'));
-ui.viewRight?.addEventListener('click', () => setCameraPreset('right'));
-ui.viewFront?.addEventListener('click', () => setCameraPreset('front'));
-ui.viewBack?.addEventListener('click', () => setCameraPreset('back'));
+ui.viewHome?.addEventListener('click', () => {
+  homeView();
+});
+ui.viewFit?.addEventListener('click', () => {
+  fitMapToFrame();
+});
+ui.viewIso?.addEventListener('click', () => {
+  setCameraPreset('iso');
+});
+ui.viewTop?.addEventListener('click', () => {
+  setCameraPreset('top');
+});
+ui.viewBottom?.addEventListener('click', () => {
+  setCameraPreset('bottom');
+});
+ui.viewLeft?.addEventListener('click', () => {
+  setCameraPreset('left');
+});
+ui.viewRight?.addEventListener('click', () => {
+  setCameraPreset('right');
+});
+ui.viewFront?.addEventListener('click', () => {
+  setCameraPreset('front');
+});
+ui.viewBack?.addEventListener('click', () => {
+  setCameraPreset('back');
+});
 
 [ui.terrainColor, ui.terrainGlow, ui.wireOpacity, ui.terrainHeight, ui.terrainPattern, ui.terrainDensity].filter(Boolean).forEach(el => {
   el.addEventListener('input', () => {
@@ -4200,6 +3826,7 @@ ui.viewBack?.addEventListener('click', () => setCameraPreset('back'));
 [ui.outlineColor, ui.outlineOpacity, ui.outlineWidth, ui.worldContextColor, ui.worldContextOpacity, ui.worldContextWidth, ui.topoColor, ui.topoOpacity, ui.topoLineWidth, ui.topoHeightScale]
   .filter(Boolean)
   .forEach(el => el.addEventListener('input', () => {
+    if (el === ui.topoHeightScale) updateTopographyScaleUI();
     markStaticDirty();
     requestRender();
   }));
@@ -4220,11 +3847,11 @@ ui.exportPng?.addEventListener('click', () => {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setExportStatus('PNG exported.');
+    setExportStatus('PNG exported.', 'success');
     toast('PNG exported', 'ok');
   } catch (err) {
     console.error(err);
-    setExportStatus('PNG export failed.');
+    setExportStatus('PNG export failed.', 'error');
     toast('PNG export failed', 'err');
   }
 });
@@ -4317,25 +3944,44 @@ if (window.DesignSystemThemeSelector && ui.themeSelectApp) {
 }
 loadOutlineCacheFromStorage();
 loadGlobalBaselineFromStorage();
+loadViewerLayoutPrefs();
+loadJourneysFromStorage();
 setupTabs();
 setupCollapsibleGroups();
+bindJourneyDirtyTracking();
 updatePlayPauseLabel();
 updateTimelineModeButton();
 
-loadPinsFromUI({ silent: true });
-syncCameraToUI();
-syncGeoWindowToUI();
-if (ui.mapProjection) ui.mapProjection.value = state.mapProjection;
-syncProjectionButtons();
-if (ui.topoResolution) ui.topoResolution.value = String(TOPO_QUALITY_PRESETS.medium.resolution);
-if (ui.topoContours) ui.topoContours.value = String(state.topography.contourCount);
-if (ui.topoMode) ui.topoMode.value = state.topography.mode;
-syncTopographyQualityFromControls();
-if (ui.outlineMainlandOnly) ui.outlineMainlandOnly.value = state.outlineFilterMode;
-syncLayerToggleButtons();
-populateOutlineSegmentSelect();
-setTopoStatus('Topography idle.');
-syncActionAvailability();
-updateDebugView();
-resize();
-requestRender();
+async function initApp() {
+  if (state.currentJourneyId && state.journeys[state.currentJourneyId]) {
+    applyJourneyPayload(state.journeys[state.currentJourneyId], { silent: true });
+  } else {
+    await loadPinsFromUI({ silent: true });
+    if (ui.journeyName) ui.journeyName.value = suggestJourneyName();
+    markJourneyDirty(true);
+  }
+
+  syncCameraToUI();
+  syncGeoWindowToUI();
+  if (ui.mapProjection) ui.mapProjection.value = state.mapProjection;
+  syncProjectionButtons();
+  if (ui.topoResolution) ui.topoResolution.value = String(ui.topoResolution.value || TOPO_QUALITY_PRESETS.medium.resolution);
+  if (ui.topoContours) ui.topoContours.value = String(ui.topoContours.value || state.topography.contourCount);
+  if (ui.topoMode) ui.topoMode.value = state.topography.mode;
+  syncTopographyQualityFromControls();
+  updateTopographyScaleUI();
+  applyViewerLayoutPrefs();
+  if (ui.outlineMainlandOnly) ui.outlineMainlandOnly.value = state.outlineFilterMode;
+  syncLayerToggleButtons();
+  syncPerformanceModeButton();
+  populateOutlineSegmentSelect();
+  setTopoStatus('Topography idle.');
+  syncJourneyUI();
+  syncActionAvailability();
+  updateDebugView();
+  resize();
+  requestRender();
+}
+
+initApp();
+
