@@ -3929,12 +3929,11 @@ const savedTheme = (() => {
   }
 })();
 if (window.DesignSystemThemeSelector && ui.themeSelectApp) {
-  const themeController = window.DesignSystemThemeSelector.initThemeSelector(ui.themeSelectApp, {
-    root: document.documentElement,
-    storageKey: themeStorageKey,
-    defaultTheme: document.documentElement.getAttribute('data-theme') || 'mono-slate'
-  });
-  applyTheme(themeController?.currentTheme || savedTheme || 'mono-slate');
+  applyTheme(
+    document.documentElement.getAttribute('data-theme') ||
+      savedTheme ||
+      'mono-slate'
+  );
   ui.themeSelectApp.addEventListener('ds-theme-change', (e) => {
     applyTheme(e?.detail?.theme || ui.themeSelectApp.value);
   });
