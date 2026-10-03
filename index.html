@@ -19,12 +19,12 @@
         --tk-header-pad-y: var(--ds-space-3, 14px);
         --tk-header-pad-x: var(--ds-space-4, 16px);
         --tk-header-pad-bottom: var(--ds-space-3, 12px);
-        --tk-control-pad-y: 6px;
-        --tk-control-pad-x: 6px;
-        --tk-control-gap: 6px;
-        --tk-group-pad: 6px;
-        --tk-group-gap: 4px;
-        --tk-field-gap: 3px;
+        --tk-control-pad-y: var(--ds-space-2, 6px);
+        --tk-control-pad-x: var(--ds-space-2, 6px);
+        --tk-control-gap: var(--ds-field-row-gap, 6px);
+        --tk-group-pad: var(--ds-space-2, 6px);
+        --tk-group-gap: var(--ds-toolbar-compact-gap, 4px);
+        --tk-field-gap: var(--ds-space-1, 3px);
         --tk-row-gap: var(--ds-space-2, 8px);
         --tk-input-pad-y: 6px;
         --tk-input-pad-x: 8px;
@@ -218,7 +218,7 @@
         margin: 0;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: var(--tk-control-gap);
         font: inherit;
         cursor: pointer;
       }
@@ -639,7 +639,7 @@
         gap: 6px;
         align-items: center;
         z-index: 3;
-        padding: 6px;
+        padding: var(--tk-group-pad);
         border: var(--ds-border-w, 1px) var(--ds-border-style, solid)
           var(--line);
         border-radius: 999px;
@@ -648,13 +648,11 @@
       }
 
       .viewer-toolbar .quick-toggle {
-        width: 28px;
-        min-width: 28px;
-        min-height: 28px;
+        width: var(--ds-icon-action-size, 28px);
+        min-width: var(--ds-icon-action-size, 28px);
+        min-height: var(--ds-icon-action-size, 28px);
         padding: 0;
-        border: 0;
-        background: transparent;
-        color: var(--ds-text-muted);
+        color: var(--ds-icon-action-fg, var(--ds-text-muted));
       }
 
       .viewer-toolbar .quick-toggle i {
@@ -662,7 +660,7 @@
       }
 
       .viewer-toolbar .quick-toggle.is-on {
-        color: var(--ds-accent);
+        color: var(--ds-icon-action-fg-active, var(--ds-accent));
       }
 
       .viewer-toolbar .quick-toggle.is-off {
@@ -694,9 +692,9 @@
           var(--line);
         background: var(--fx-hud-bg);
         border-radius: var(--ds-radius-2, 10px);
-        padding: 6px;
+        padding: var(--tk-group-pad);
         display: grid;
-        gap: 6px;
+        gap: var(--tk-control-gap);
         z-index: 2;
         backdrop-filter: blur(4px);
       }
@@ -960,13 +958,13 @@
 
       .render-stack {
         display: grid;
-        gap: 10px;
+        gap: var(--ds-rhythm-content, 10px);
         align-content: start;
       }
 
       .render-group {
         display: grid;
-        gap: 6px;
+        gap: var(--tk-control-gap);
         padding-top: 8px;
         border-top: var(--ds-border-w) var(--ds-border-style)
           color-mix(in oklab, var(--line) 70%, transparent);
@@ -990,15 +988,15 @@
         display: grid;
         grid-template-columns: 1fr auto;
         align-items: center;
-        gap: 6px;
+        gap: var(--tk-control-gap);
       }
 
       .layer-vis {
-        width: 22px;
-        min-height: 22px;
+        width: var(--ds-icon-action-size, 22px);
+        min-height: var(--ds-icon-action-size, 22px);
         padding: 0;
         font-size: 0;
-        border: 0;
+        border-color: var(--ds-icon-action-border, transparent);
         background: transparent;
         opacity: 0;
         transform: translateY(-1px);
@@ -1058,7 +1056,7 @@
       .render-row {
         display: grid;
         grid-template-columns: 18px 1fr 168px;
-        gap: 6px;
+        gap: var(--tk-control-gap);
         align-items: center;
         min-height: 0;
       }
@@ -1801,10 +1799,11 @@
                 <div class="group-head">
                   <h3>Import Pins</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm panel-help"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action panel-help"
                     type="button"
                     data-help="Paste CSV rows or Google Maps links, then use Add Pins. Successful rows are removed from the input."
                     title="Help"
+                    aria-label="Help"
                   >
                     <i class="iconoir-info-circle"></i>
                   </button>
@@ -1838,10 +1837,11 @@
                 <div class="group-head">
                   <h3>Journey Pins</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm panel-help"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action panel-help"
                     type="button"
                     data-help="Select a pin from the list to edit metadata. Save activates only after changes."
                     title="Help"
+                    aria-label="Help"
                   >
                     <i class="iconoir-info-circle"></i>
                   </button>
@@ -1911,10 +1911,11 @@
                 <div class="group-head">
                   <h3>Rendering Controls</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm panel-help"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action panel-help"
                     type="button"
                     data-help="Layer order: Pins, Path, Outline, Lat/Lng Grid, Topography, Sea Level. Use color + width + opacity controls for each layer."
                     title="Help"
+                    aria-label="Help"
                   >
                     <i class="iconoir-info-circle"></i>
                   </button>
@@ -1968,7 +1969,7 @@
                     <div class="layer-head">
                       <h4>Pins</h4>
                       <button
-                        class="ds-btn layer-vis is-on"
+                        class="ds-btn ds-btn-icon ds-icon-action layer-vis is-on"
                         id="visPins"
                         type="button"
                         title="Show/hide Pins"
@@ -2021,7 +2022,7 @@
                     <div class="layer-head">
                       <h4>Path</h4>
                       <button
-                        class="ds-btn layer-vis is-on"
+                        class="ds-btn ds-btn-icon ds-icon-action layer-vis is-on"
                         id="visPath"
                         type="button"
                         title="Show/hide Path"
@@ -2077,7 +2078,7 @@
                     <div class="layer-head">
                       <h4>Outline</h4>
                       <button
-                        class="ds-btn layer-vis is-on"
+                        class="ds-btn ds-btn-icon ds-icon-action layer-vis is-on"
                         id="visOutline"
                         type="button"
                         title="Show/hide Outline"
@@ -2134,7 +2135,7 @@
                       ></span>
                       <span class="render-label">Context</span>
                       <button
-                        class="ds-btn layer-vis is-on"
+                        class="ds-btn ds-btn-icon ds-icon-action layer-vis is-on"
                         id="visWorldContext"
                         type="button"
                         title="Show/hide world context outline"
@@ -2190,7 +2191,7 @@
                     <div class="layer-head">
                       <h4>Lat/Lng Grid</h4>
                       <button
-                        class="ds-btn layer-vis is-on"
+                        class="ds-btn ds-btn-icon ds-icon-action layer-vis is-on"
                         id="visGeoGrid"
                         type="button"
                         title="Show/hide Lat/Lng Grid"
@@ -2312,7 +2313,7 @@
                     <div class="layer-head">
                       <h4>Topography</h4>
                       <button
-                        class="ds-btn layer-vis is-on"
+                        class="ds-btn ds-btn-icon ds-icon-action layer-vis is-on"
                         id="visTopography"
                         type="button"
                         title="Show/hide Topography"
@@ -2395,7 +2396,7 @@
                     <div class="layer-head">
                       <h4>Sea Level</h4>
                       <button
-                        class="ds-btn layer-vis is-on"
+                        class="ds-btn ds-btn-icon ds-icon-action layer-vis is-on"
                         id="visSeaLevel"
                         type="button"
                         title="Show/hide Sea Level"
@@ -2505,10 +2506,11 @@
                 <div class="group-head">
                   <h3>Camera Controls</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm panel-help"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action panel-help"
                     type="button"
                     data-help="Left drag to orbit. Shift+left drag or middle drag to track. Wheel to dolly. Preset gizmo buttons match direction."
                     title="Help"
+                    aria-label="Help"
                   >
                     <i class="iconoir-info-circle"></i>
                   </button>
@@ -2705,10 +2707,11 @@
                 <div class="group-head">
                   <h3>Map Settings + Open Data</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm panel-help"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action panel-help"
                     type="button"
                     data-help="Outline loads country boundaries from open map sources and stores them in local cache for reuse. Refresh forces a new fetch and updates cache. Sync Global downloads and stores a higher-fidelity global baseline so context quality is not stuck at coarse fallback. Context rendering uses cached country outlines plus baseline data. Flat/Globe sets map projection mode. Center Lat/Lng repositions the focus window; Window Span controls the visible degree range in flat mode; Fine Scale adjusts map size. Re-run Route after pin changes."
                     title="Help"
+                    aria-label="Help"
                   >
                     <i class="iconoir-info-circle"></i>
                   </button>
@@ -2845,23 +2848,24 @@
                   </div>
                 </div>
                 <div class="geo-pad" aria-label="Map window controls">
-                  <button class="ds-btn g-north" id="geoNudgeN" title="Move north">
+                  <button class="ds-btn ds-btn-icon ds-icon-action g-north" id="geoNudgeN" title="Move north" aria-label="Move north">
                     <i class="iconoir-nav-arrow-up" aria-hidden="true"></i>
                   </button>
-                  <button class="ds-btn g-west" id="geoNudgeW" title="Move west">
+                  <button class="ds-btn ds-btn-icon ds-icon-action g-west" id="geoNudgeW" title="Move west" aria-label="Move west">
                     <i class="iconoir-nav-arrow-left" aria-hidden="true"></i>
                   </button>
                   <button
-                    class="ds-btn g-fit-window"
+                    class="ds-btn ds-btn-icon ds-icon-action g-fit-window"
                     id="fitGeoWindow"
                     title="Fit window to loaded map"
+                    aria-label="Fit window to loaded map"
                   >
                     <i class="iconoir-frame-select" aria-hidden="true"></i>
                   </button>
-                  <button class="ds-btn g-east" id="geoNudgeE" title="Move east">
+                  <button class="ds-btn ds-btn-icon ds-icon-action g-east" id="geoNudgeE" title="Move east" aria-label="Move east">
                     <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
                   </button>
-                  <button class="ds-btn g-south" id="geoNudgeS" title="Move south">
+                  <button class="ds-btn ds-btn-icon ds-icon-action g-south" id="geoNudgeS" title="Move south" aria-label="Move south">
                     <i class="iconoir-nav-arrow-down" aria-hidden="true"></i>
                   </button>
                 </div>
@@ -2870,10 +2874,11 @@
                 <div class="group-head">
                   <h3>Topography Import</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm panel-help"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action panel-help"
                     type="button"
                     data-help="MVP: loads elevation samples from OpenTopoData and renders either contour lines or a 3D wireframe terrain mesh. Load Topography is cache-first by country+bounds+resolution. Refresh Topography forces a new network fetch and updates cache. Use country outline first for best bounds."
                     title="Help"
+                    aria-label="Help"
                   >
                     <i class="iconoir-info-circle"></i>
                   </button>
@@ -2951,10 +2956,11 @@
                 <div class="group-head">
                   <h3>Image</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm panel-help"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action panel-help"
                     type="button"
                     data-help="Export the current canvas as an image snapshot."
                     title="Help"
+                    aria-label="Help"
                   >
                     <i class="iconoir-info-circle"></i>
                   </button>
@@ -2972,10 +2978,11 @@
                 <div class="group-head">
                   <h3>Journey Data</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm panel-help"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action panel-help"
                     type="button"
                     data-help="Import and export portable trek JSON snapshots for moving journeys between browsers and machines."
                     title="Help"
+                    aria-label="Help"
                   >
                     <i class="iconoir-info-circle"></i>
                   </button>
@@ -3011,7 +3018,7 @@
                 <div class="group-head">
                   <h3>Raw JSON</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action"
                     id="refreshRaw"
                     type="button"
                     title="Refresh raw JSON preview"
@@ -3037,7 +3044,7 @@
                 <div class="group-head">
                   <h3>Debug State</h3>
                   <button
-                    class="ds-btn ds-btn-icon ds-btn-sm"
+                    class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action"
                     id="refreshDebug"
                     type="button"
                     title="Refresh debug state"
@@ -3100,104 +3107,112 @@
         <canvas id="view"></canvas>
         <div class="viewer-toolbar" aria-label="Quick render toggles">
           <button
-            class="ds-btn quick-toggle"
+            class="ds-btn ds-btn-icon ds-icon-action quick-toggle"
             id="quickPerfMode"
             type="button"
             title="Toggle Performance Mode"
+            aria-label="Toggle Performance Mode"
           >
             <i class="iconoir-flash" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn quick-toggle"
+            class="ds-btn ds-btn-icon ds-icon-action quick-toggle"
             id="quickVisPins"
             data-toggle-style="static"
             type="button"
             title="Toggle Pins"
+            aria-label="Toggle Pins"
           >
             <i class="iconoir-map-pin" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn quick-toggle"
+            class="ds-btn ds-btn-icon ds-icon-action quick-toggle"
             id="quickVisPath"
             data-toggle-style="static"
             type="button"
             title="Toggle Path"
+            aria-label="Toggle Path"
           >
             <i class="iconoir-path-arrow" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn quick-toggle"
+            class="ds-btn ds-btn-icon ds-icon-action quick-toggle"
             id="quickVisOutline"
             data-toggle-style="static"
             type="button"
             title="Toggle Outline"
+            aria-label="Toggle Outline"
           >
             <i class="iconoir-country" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn quick-toggle"
+            class="ds-btn ds-btn-icon ds-icon-action quick-toggle"
             id="quickVisWorldContext"
             data-toggle-style="static"
             type="button"
             title="Toggle World Context"
+            aria-label="Toggle World Context"
           >
             <i class="iconoir-globe" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn quick-toggle"
+            class="ds-btn ds-btn-icon ds-icon-action quick-toggle"
             id="quickVisGeoGrid"
             data-toggle-style="static"
             type="button"
             title="Toggle Lat/Lng Grid"
+            aria-label="Toggle Lat/Lng Grid"
           >
             <i class="iconoir-grid-plus" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn quick-toggle"
+            class="ds-btn ds-btn-icon ds-icon-action quick-toggle"
             id="quickVisTopography"
             data-toggle-style="static"
             type="button"
             title="Toggle Topography"
+            aria-label="Toggle Topography"
           >
             <i class="iconoir-xray-view" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn quick-toggle"
+            class="ds-btn ds-btn-icon ds-icon-action quick-toggle"
             id="quickVisSeaLevel"
             data-toggle-style="static"
             type="button"
             title="Toggle Sea Level"
+            aria-label="Toggle Sea Level"
           >
             <i class="iconoir-grid-minus" aria-hidden="true"></i>
           </button>
         </div>
         <div class="hud-camera" aria-label="Camera view controls">
           <div class="camera-gizmo">
-            <button class="ds-btn g-front" id="viewFront" title="Front">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-front" id="viewFront" title="Front" aria-label="Front">
               <i class="iconoir-view-grid" aria-hidden="true"></i>
             </button>
-            <button class="ds-btn g-top" id="viewTop" title="Top">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-top" id="viewTop" title="Top" aria-label="Top">
               <i class="iconoir-nav-arrow-up" aria-hidden="true"></i>
             </button>
-            <button class="ds-btn g-back" id="viewBack" title="Back">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-back" id="viewBack" title="Back" aria-label="Back">
               <i class="iconoir-view-columns-3" aria-hidden="true"></i>
             </button>
-            <button class="ds-btn g-left" id="viewLeft" title="Left">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-left" id="viewLeft" title="Left" aria-label="Left">
               <i class="iconoir-nav-arrow-left" aria-hidden="true"></i>
             </button>
-            <button class="ds-btn g-home" id="viewHome" title="Home view">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-home" id="viewHome" title="Home view" aria-label="Home view">
               <i class="iconoir-home" aria-hidden="true"></i>
             </button>
-            <button class="ds-btn g-right" id="viewRight" title="Right">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-right" id="viewRight" title="Right" aria-label="Right">
               <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
             </button>
-            <button class="ds-btn g-iso" id="viewIso" title="Isometric">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-iso" id="viewIso" title="Isometric" aria-label="Isometric">
               <i class="iconoir-cube-bandage" aria-hidden="true"></i>
             </button>
-            <button class="ds-btn g-bottom" id="viewBottom" title="Bottom">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-bottom" id="viewBottom" title="Bottom" aria-label="Bottom">
               <i class="iconoir-nav-arrow-down" aria-hidden="true"></i>
             </button>
-            <button class="ds-btn g-fit" id="viewFit" title="Fit map to frame">
+            <button class="ds-btn ds-btn-icon ds-icon-action g-fit" id="viewFit" title="Fit map to frame" aria-label="Fit map to frame">
               <i class="iconoir-frame-select" aria-hidden="true"></i>
             </button>
           </div>
@@ -3214,23 +3229,26 @@
       <section class="timeline-bar">
         <div class="timeline-tools">
           <button
-            class="ds-btn ds-btn-primary ds-btn-icon ds-btn-sm"
+            class="ds-btn ds-btn-primary ds-btn-icon ds-btn-sm ds-icon-action"
             id="playPause"
             title="Play/Pause"
+            aria-label="Play/Pause"
           >
             <i class="iconoir-play-solid" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn ds-btn-icon ds-btn-sm"
+            class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action"
             id="reset"
             title="Reset timeline"
+            aria-label="Reset timeline"
           >
             <i class="iconoir-restart" aria-hidden="true"></i>
           </button>
           <button
-            class="ds-btn ds-btn-icon ds-btn-sm"
+            class="ds-btn ds-btn-icon ds-btn-sm ds-icon-action"
             id="timelineModeBtn"
             title="Timeline mode"
+            aria-label="Timeline mode"
           >
             <i class="iconoir-clock-rotate-right" aria-hidden="true"></i>
           </button>
@@ -3246,9 +3264,10 @@
           </label>
           <div class="spacer"></div>
           <button
-            class="ds-btn ds-btn-danger ds-btn-icon ds-btn-sm"
+            class="ds-btn ds-btn-danger ds-btn-icon ds-btn-sm ds-icon-action"
             id="clearRoute"
             title="Clear route and outline"
+            aria-label="Clear route and outline"
           >
             <i class="iconoir-trash" aria-hidden="true"></i>
           </button>
